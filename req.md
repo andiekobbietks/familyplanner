@@ -184,7 +184,7 @@ Azure Cosmos DB (NoSQL, free tier)  one database, one container
 Design points:
 
 - **Single Static Web App resource** with the API deployed as managed functions. No separate Function App, no VM, no container.
-- **Region:** UK South for both resources.
+- **Region:** Cosmos DB in UK South, so the data stays in the UK. Static Web Apps is not offered in UK South, so the SWA and its functions run in West Europe, the nearest region.
 - **Client** is a single-page app. All data access goes through `/api/*`. The client never talks to Cosmos DB directly and holds no secrets.
 - **API** is a small set of HTTP-triggered functions. Every handler follows the same pattern: resolve the caller, check role, validate body with a schema, perform the operation, return JSON.
 - **Caller resolution is one function.** `getCaller(req)` reads `x-ms-client-principal` and returns `{ memberId, role, familyId }`. Handlers never read the header themselves. In v2 this same function can accept a service credential for the home server without touching any handler.

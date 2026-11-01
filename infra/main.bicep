@@ -5,8 +5,10 @@
 // Application settings are set with `az staticwebapp appsettings set`, not here, because a
 // staticSites/config resource replaces the whole set and would wipe the client secret on a re-run.
 
-@description('Region for every resource. UK South keeps the data in the UK.')
+@description('Region for the data. UK South keeps it in the UK.')
 param location string = 'uksouth'
+@description('Static Web Apps is not offered in UK South; West Europe is the nearest region.')
+param swaLocation string = 'westeurope'
 param name string = 'familyplanner'
 @description('Object id of the familyplanner-api service principal (S18).')
 param apiPrincipalId string
@@ -17,7 +19,7 @@ param alertEmail string = ''
 // One Static Web App, Free tier, with managed functions (section 6). Deployed from GitHub Actions with a deployment token.
 resource swa 'Microsoft.Web/staticSites@2023-12-01' = {
   name: name
-  location: location
+  location: swaLocation
   sku: { name: 'Free', tier: 'Free' }
   properties: {
     stagingEnvironmentPolicy: 'Enabled'
