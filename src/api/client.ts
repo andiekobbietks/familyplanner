@@ -40,7 +40,7 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
     if (res.status === 401) {
       window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`)
     } else if (res.status === 403 && (err.code === 'NOT_A_MEMBER' || err.code === 'MEMBER_REMOVED')) {
-      window.location.assign('/not-a-member')
+      window.location.assign('/not-a-member?from=api')
     }
     throw new ApiError(res.status, err.code ?? 'ERROR', err.error ?? res.statusText)
   }

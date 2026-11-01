@@ -52,7 +52,7 @@ export function Profile() {
         </button>
       </div>
       <p className="muted small">Signed in through Microsoft. Passwords are never handled by this app.</p>
-      <a className="btn" href="/.auth/logout">
+      <a className="btn" href="/.auth/logout?post_logout_redirect_uri=/login">
         Log out
       </a>
     </>

@@ -48,7 +48,7 @@ export function Layout() {
                   </NavLink>
                 </>
               )}
-              <a href="/.auth/logout" role="menuitem">
+              <a href="/.auth/logout?post_logout_redirect_uri=/login" role="menuitem">
                 Log out
               </a>
             </div>
