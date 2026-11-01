@@ -16,8 +16,7 @@ export class CosmosStore implements Store {
   private constructor(private container: Container) {}
 
   static async create(endpoint: string): Promise<CosmosStore> {
-    // Without this the SDK sends no session token, so a read straight after a write can miss it.
-    const client = new CosmosClient({ endpoint, aadCredentials: new DefaultAzureCredential(), consistencyLevel: 'Session' })
+    const client = new CosmosClient({ endpoint, aadCredentials: new DefaultAzureCredential() })
     const container = client
       .database(process.env.COSMOS_DATABASE ?? 'familyplanner')
       .container(process.env.COSMOS_CONTAINER ?? 'docs')

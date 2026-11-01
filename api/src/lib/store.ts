@@ -14,22 +14,25 @@ export interface Store {
   deleteAll(familyId: string): Promise<void>
 }
 
-let current: Store | undefined
+let current: Promise<Store> | undefined
 
-export async function getStore(): Promise<Store> {
-  if (current) return current
+async function createStore(): Promise<Store> {
   if (process.env.COSMOS_ENDPOINT && process.env.STORE !== 'memory') {
     const { CosmosStore } = await import('./cosmosStore')
-    current = await CosmosStore.create(process.env.COSMOS_ENDPOINT)
-  } else {
-    const { MemoryStore } = await import('./memoryStore')
-    const { seed } = await import('./seed')
-    current = await MemoryStore.create(process.env.STORE_FILE ?? `${__dirname}/../../.data/db.json`, seed)
+    return CosmosStore.create(process.env.COSMOS_ENDPOINT)
   }
+  const { MemoryStore } = await import('./memoryStore')
+  const { seed } = await import('./seed')
+  return MemoryStore.create(process.env.STORE_FILE ?? `${__dirname}/../../.data/db.json`, seed)
+}
+
+/** Holds the promise, not the result, so concurrent first requests share one store. */
+export function getStore(): Promise<Store> {
+  current ??= createStore()
   return current
 }
 
 /** Tests inject their own store. */
 export function setStore(store: Store | undefined) {
-  current = store
+  current = store && Promise.resolve(store)
 }

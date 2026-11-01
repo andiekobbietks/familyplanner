@@ -1,7 +1,7 @@
 import { HttpError } from './errors'
 import type { Store } from './store'
 import type { Caller, Member, Role } from './types'
-import { newId, nowIso } from './util'
+import { nowIso } from './util'
 
 interface ClientPrincipal {
   identityProvider: string
@@ -39,15 +39,15 @@ export async function getCaller(principalHeader: string | null | undefined, stor
   const fid = familyId()
   const email = (principal.userDetails ?? '').toLowerCase()
   const members = await store.byType<Member>(fid, 'member')
-  let member =
-    members.find((m) => m.providerUserId === principal.userId) ??
-    // Static Web Apps can leave userDetails blank, and blank must not match another blank member.
-    (email ? members.find((m) => m.email.toLowerCase() === email) : undefined)
+  const mine = members.filter((m) => m.providerUserId === principal.userId).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  for (const extra of mine.slice(1)) await store.delete(fid, extra.id)
+  let member = mine[0] ?? (email ? members.find((m) => m.email.toLowerCase() === email) : undefined)
 
   const now = nowIso()
   if (!member) {
+    // A first page load sends several requests at once. A fixed id makes them all write the same member.
     member = {
-      id: newId(),
+      id: `member-${principal.userId}`,
       familyId: fid,
       type: 'member',
       displayName: email.split('@')[0] || 'New member',

@@ -11,6 +11,7 @@ import { addItem, deleteItem, getItems, patchItem } from '../src/handlers/lists'
 import { removeMember } from '../src/handlers/admin'
 import type { BaseDoc, Caller, Item, List, Member } from '../src/lib/types'
 import { ValidationError } from '../src/lib/schemas'
+import { stamp } from '../src/lib/util'
 
 process.env.FAMILY_ID = 'home'
 const q = (s = '') => new URLSearchParams(s)
@@ -37,6 +38,21 @@ describe('getCaller', () => {
     const c = await getCaller(principal('dev-jo', 'jo@example.com', ['admin']), store)
     expect(c.memberId).toBe('m-jo')
     expect(c.role).toBe('admin')
+  })
+  it('concurrent first requests create one member', async () => {
+    const p = principal('new-user', 'new@example.com', ['member'])
+    const [a, b, c] = await Promise.all([getCaller(p, store), getCaller(p, store), getCaller(p, store)])
+    expect(new Set([a.memberId, b.memberId, c.memberId]).size).toBe(1)
+    const members = await store.byType<Member>('home', 'member')
+    expect(members.filter((m) => m.providerUserId === 'new-user')).toHaveLength(1)
+  })
+  it('duplicate members collapse to the oldest', async () => {
+    const dup = (id: string, createdAt: string) => stamp(tim, 'member', { displayName: 'Dup', email: 'dup@example.com', role: 'member' as const, colour: '#000000', active: true, providerUserId: 'dup', lastLoginAt: createdAt, createdAt }, id)
+    await store.upsert({ ...dup('newer', 'x'), createdAt: '2026-11-01T21:24:37.150Z' })
+    await store.upsert({ ...dup('oldest', 'x'), createdAt: '2026-11-01T21:24:37.131Z' })
+    const c = await getCaller(principal('dup', 'dup@example.com', ['member']), store)
+    expect(c.memberId).toBe('oldest')
+    expect(await store.get('home', 'newer', 'member')).toBeUndefined()
   })
   it('two accounts with no userDetails stay separate members', async () => {
     const a = await getCaller(principal('blank-a', '', ['admin']), store)

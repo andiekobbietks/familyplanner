@@ -27,7 +27,7 @@ export function Shopping() {
   const { data: me } = useMe()
   const listId = params.get('list') ?? lists?.[0]?.id
   const list = lists?.find((l) => l.id === listId)
-  const { data: items = [], isLoading } = useItems(listId, true)
+  const { data: items = [], isLoading, isError } = useItems(listId, true)
   const qc = useQueryClient()
   const toast = useToast()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -150,7 +150,8 @@ export function Shopping() {
           </div>
 
           {isLoading && <p className="loading">Loading…</p>}
-          {!isLoading && grouped.length === 0 && <p className="empty">Nothing to buy. Add something above.</p>}
+          {isError && <p className="empty">Could not load this list. It will retry shortly.</p>}
+          {!isLoading && !isError && grouped.length === 0 && <p className="empty">Nothing to buy. Add something above.</p>}
           {grouped.map((g) => (
             <div className="catgroup" key={g.key || 'none'}>
               {anyCategory && g.key && <h3>{g.key}</h3>}

@@ -38,7 +38,8 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
     databaseAccountOfferType: 'Standard'
     enableFreeTier: true
     locations: [ { locationName: location, failoverPriority: 0 } ]
-    consistencyPolicy: { defaultConsistencyLevel: 'Session' }
+    // Strong, not Session: session tokens do not cross function instances, and a save must show on the next read.
+    consistencyPolicy: { defaultConsistencyLevel: 'Strong' }
     publicNetworkAccess: 'Enabled'
     ipRules: [ { ipAddressOrRange: '0.0.0.0' } ] // S20: 0.0.0.0 means public Azure datacentres only
     disableLocalAuth: true // S18: keys cannot be used at all
