@@ -28,11 +28,7 @@ export const getMembers: Handler = async ({ store, caller }) => {
   return { body: members.map(({ providerUserId: _pid, ...m }) => m) }
 }
 
-/**
- * Records who is expected. The invitation link itself is issued by Static Web
- * Apps (portal or management API), which is what actually grants the role (S3).
- * The member document created here is linked to the account on first login.
- */
+/** The member document is the invitation (S3). It links to the account on first sign-in with this email. */
 export const invite: Handler = async ({ store, caller }, _p, _q, body) => {
   const { email, role } = parse(inviteSchema, body)
   const members = await store.byType<Member>(caller.familyId, 'member')
@@ -47,7 +43,7 @@ export const invite: Handler = async ({ store, caller }, _p, _q, body) => {
     status: 201,
     body: {
       member,
-      instructions: `Create an invitation in the Azure portal (Static Web App > Role management > Invite) for ${email} with role "${role}". Invitations expire after 24 hours.`,
+      instructions: `Ask ${email} to sign in to this site with the Microsoft account for that address.`,
     },
   }
 }
@@ -68,9 +64,11 @@ export const exportAll: Handler = async ({ store, caller, now }) => {
   return { body: out }
 }
 
-/** S29: one action empties the family's data. The caller is recreated on their next request. */
+/** S29: one action empties the family's data, keeping only the caller's member so an admin can still sign in. */
 export const erase: Handler = async ({ store, caller }, _p, _q, body) => {
   parse(eraseSchema, body)
+  const me = await store.get<Member>(caller.familyId, caller.memberId, 'member')
   await store.deleteAll(caller.familyId)
+  if (me) await store.upsert(me)
   return { status: 204 }
 }

@@ -12,19 +12,15 @@
     { "route": "/icons/*",              "allowedRoles": ["anonymous", "authenticated"] },
     { "route": "/manifest.webmanifest", "allowedRoles": ["anonymous", "authenticated"] },
     { "route": "/sw.js",                "allowedRoles": ["anonymous", "authenticated"] },
-    { "route": "/api/members/*",        "allowedRoles": ["admin"] },
-    { "route": "/api/admin/*",          "allowedRoles": ["admin"] },
-    { "route": "/api/export",           "allowedRoles": ["admin"] },
-    { "route": "/api/*",                "allowedRoles": ["member", "admin"] },
-    { "route": "/*",                    "allowedRoles": ["member", "admin"] }
+    { "route": "/api/*",                "allowedRoles": ["authenticated"] },
+    { "route": "/*",                    "allowedRoles": ["authenticated"] }
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": ["/assets/*", "/icons/*", "/api/*", "/.auth/*"]
   },
   "responseOverrides": {
-    "401": { "redirect": "/.auth/login/aad?post_login_redirect_uri=.referrer", "statusCode": 302 },
-    "403": { "rewrite": "/not-a-member" }
+    "401": { "redirect": "/.auth/login/aad?post_login_redirect_uri=.referrer", "statusCode": 302 }
   },
   "globalHeaders": {
     "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",

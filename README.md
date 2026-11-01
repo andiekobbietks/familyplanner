@@ -53,16 +53,13 @@ Static Web Apps is not offered in UK South, so the app and its functions run in 
    `az staticwebapp appsettings set -n familyplanner --setting-names COSMOS_ENDPOINT=<endpoint> COSMOS_DATABASE=familyplanner COSMOS_CONTAINER=docs FAMILY_ID=home AZURE_TENANT_ID=<tenant> AZURE_CLIENT_ID=<appId> AZURE_CLIENT_SECRET=<password>`
 5. Put the deployment token in GitHub: `az staticwebapp secrets list -n familyplanner --query properties.apiKey -o tsv | gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN`
 6. Push to `main`. The workflow runs the checks and deploys.
-7. In the portal, Static Web App > Role management > Invite: one invitation per family member with role `admin` or `member`. Links expire after 24 hours.
+7. Sign in on the site, then add everyone else on the Members page. A new deployment has no members, so the first admin's member record has to be created by hand in Cosmos DB Data Explorer: `type` member, `familyId` home, their email, `role` admin, `active` true.
 
 Client secrets expire, by default after a year: `az ad sp credential reset --id <appId>`, then repeat the `AZURE_CLIENT_SECRET` part of step 4.
 
 ## Draft status and known gaps
 
-- `CosmosStore` is written against the SDK but has not been run against a real account.
 - Google calendar display (requirements section 5.3.1) is specified but not built.
-- Invitations: the API records the expected member; the invitation link itself still comes from the portal (or the SWA management API in a later pass).
-- Removing a member revokes API access immediately (S17) but the SWA role must also be removed in the portal.
 - PNG icons (192 and 512) for the manifest are not generated yet; the SVG works in Chrome but iOS wants PNG.
 - No ESLint config yet; CI runs type-check and tests.
 - Playwright smoke suite (section 11) not written.

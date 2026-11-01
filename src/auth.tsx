@@ -19,16 +19,14 @@ async function fetchPrincipal(): Promise<ClientPrincipal | null> {
 export const usePrincipal = () => useQuery({ queryKey: ['principal'], queryFn: fetchPrincipal, staleTime: 5 * 60_000 })
 
 /**
- * Client-side gate. In production the SWA route rules already send an
- * unauthenticated visitor to login before any HTML is served; this keeps the
- * SPA honest about the same states (logged out, signed in but not invited).
+ * Client-side gate for being signed in. In production the SWA route rules
+ * already do this before any HTML is served. Membership is the API's decision:
+ * its 403 sends an uninvited account to /not-a-member (api/client.ts).
  */
 export function RequireMember({ children }: { children: ReactNode }) {
   const { data, isLoading } = usePrincipal()
   const loc = useLocation()
   if (isLoading) return <div className="loading">Loading…</div>
   if (!data) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname)}`} replace />
-  const ok = data.userRoles.includes('member') || data.userRoles.includes('admin')
-  if (!ok) return <Navigate to="/not-a-member" replace />
   return <>{children}</>
 }

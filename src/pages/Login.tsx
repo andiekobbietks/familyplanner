@@ -5,7 +5,7 @@ export function Login() {
   const [params] = useSearchParams()
   const next = params.get('next') ?? '/'
   const { data, isLoading } = usePrincipal()
-  if (!isLoading && data && (data.userRoles.includes('member') || data.userRoles.includes('admin'))) return <Navigate to={next} replace />
+  if (!isLoading && data) return <Navigate to={next} replace />
 
   const login = `/.auth/login/aad?post_login_redirect_uri=${encodeURIComponent(next)}`
   return (

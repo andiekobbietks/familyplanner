@@ -8,7 +8,7 @@ import { shop, setPlanCell, copyWeek } from '../src/handlers/meals'
 import { patchMe } from '../src/handlers/me'
 import { createTask, deleteTask, patchTask } from '../src/handlers/tasks'
 import { addItem, deleteItem, getItems, patchItem } from '../src/handlers/lists'
-import { removeMember } from '../src/handlers/admin'
+import { erase, invite, removeMember } from '../src/handlers/admin'
 import type { BaseDoc, Caller, Item, List, Member } from '../src/lib/types'
 import { ValidationError } from '../src/lib/schemas'
 import { stamp } from '../src/lib/util'
@@ -39,12 +39,22 @@ describe('getCaller', () => {
     expect(c.memberId).toBe('m-jo')
     expect(c.role).toBe('admin')
   })
-  it('concurrent first requests create one member', async () => {
-    const p = principal('new-user', 'new@example.com', ['member'])
-    const [a, b, c] = await Promise.all([getCaller(p, store), getCaller(p, store), getCaller(p, store)])
-    expect(new Set([a.memberId, b.memberId, c.memberId]).size).toBe(1)
-    const members = await store.byType<Member>('home', 'member')
-    expect(members.filter((m) => m.providerUserId === 'new-user')).toHaveLength(1)
+  it('S3: a role in the session grants nothing without a member document', async () => {
+    await expect(getCaller(principal('x', 'stranger@example.com', ['admin']), store)).rejects.toMatchObject({ status: 403, code: 'NOT_A_MEMBER' })
+  })
+  it('a member keeps their role when the session has no custom role', async () => {
+    await getCaller(principal('dev-jo', 'jo@example.com', []), store)
+    expect(await getCaller(principal('dev-jo', 'jo@example.com', []), store)).toMatchObject({ memberId: 'm-jo', role: 'admin' })
+  })
+  it('an invited member signs in, and their email cannot then be claimed by another account', async () => {
+    await invite(ctx, {}, q(), { email: 'new@example.com', role: 'member' })
+    const c = await getCaller(principal('new-user', 'new@example.com', []), store)
+    expect(c.role).toBe('member')
+    await expect(getCaller(principal('other-user', 'new@example.com', []), store)).rejects.toMatchObject({ status: 403 })
+  })
+  it('S29: erase keeps the admin who ran it', async () => {
+    await erase(ctx, {}, q(), { confirm: 'DELETE' })
+    expect((await store.byType<Member>('home', 'member')).map((m) => m.id)).toEqual(['m-tim'])
   })
   it('duplicate members collapse to the oldest', async () => {
     const dup = (id: string, createdAt: string) => stamp(tim, 'member', { displayName: 'Dup', email: 'dup@example.com', role: 'member' as const, colour: '#000000', active: true, providerUserId: 'dup', lastLoginAt: createdAt, createdAt }, id)
@@ -53,12 +63,6 @@ describe('getCaller', () => {
     const c = await getCaller(principal('dup', 'dup@example.com', ['member']), store)
     expect(c.memberId).toBe('oldest')
     expect(await store.get('home', 'newer', 'member')).toBeUndefined()
-  })
-  it('two accounts with no userDetails stay separate members', async () => {
-    const a = await getCaller(principal('blank-a', '', ['admin']), store)
-    const b = await getCaller(principal('blank-b', '', ['member']), store)
-    expect(a.memberId).not.toBe(b.memberId)
-    expect((await getCaller(principal('blank-a', '', ['admin']), store)).memberId).toBe(a.memberId)
   })
   it('A5: a removed member fails on the next request', async () => {
     await removeMember(ctx, { id: 'm-charlie' }, q(), undefined)

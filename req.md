@@ -64,10 +64,10 @@ Notes:
 
 - Login uses the built-in authentication of Azure Static Web Apps. The app never sees or stores a password.
 - Exactly one identity provider is enabled for v1. The default recommendation is Microsoft accounts (Entra ID, personal and work accounts). See Open Decision D1 for the alternative.
-- Access is invitation-only. An admin generates an invitation link from the Azure portal (or a small admin page that calls the SWA management API) for a specific email address and role. Invitations expire within 24 hours.
+- Access is invitation-only. An admin adds an email address and role on the Members page; that person then signs in with the Microsoft account for that address. No link is sent.
 - A user who logs in with a valid provider account but has not been invited is shown a "not a member of this family" page and has no access to any data or API route.
-- All routes except `/login`, `/.auth/*` and static assets require the `member` or `admin` role. This is enforced in `staticwebapp.config.json`, not only in client-side code.
-- Every API route also requires `member` or `admin`, enforced in the same config file and re-checked inside each function handler.
+- All routes except `/login`, `/.auth/*` and static assets require a signed-in user. This is enforced in `staticwebapp.config.json`, not only in client-side code. The app shell is therefore loadable by any signed-in provider account, but it contains no family data.
+- Every API route also requires a signed-in user in the same config file, and membership and role are checked inside the function on every request (S3).
 - Logout is a visible button that calls `/.auth/logout` and returns the user to the login page.
 - Session lifetime follows the SWA default. The app must handle a 401 from any API call by redirecting to login rather than showing a broken screen.
 
@@ -156,7 +156,7 @@ A week-at-a-glance plan of what the family is eating, backed by a small library 
 ### 5.7 Members and settings (admin only)
 
 - List of members with name, email, role, last login.
-- Invite a new member: email and role, generates a link the admin shares by hand.
+- Invite a new member: email and role. They then sign in with that email.
 - Remove a member. Their historical actions remain attributed by display name.
 - Each member can set their own display name and colour.
 - Meal plan settings: whether Breakfast is enabled (Lunch and Dinner are always on) and the default shopping list for ingredients.
@@ -212,13 +212,13 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 
 - S1. No application-managed passwords, password resets or account creation. All of that is the identity provider's job.
 - S2. Only one identity provider is enabled. The login routes for every other provider (`/.auth/login/github`, `/.auth/login/twitter`, and so on) return 404 via a route rule in `staticwebapp.config.json`.
-- S3. Invitation-only membership. Logging in with the provider is necessary but not sufficient. The user must also hold the `member` or `admin` role, which is only granted through an invitation.
-- S4. Invitations expire within 24 hours and are single-use.
+- S3. Invitation-only membership. Logging in with the provider is necessary but not sufficient. The user must also have an active member record, which only an admin can create, and that record holds their role. The API checks it on every request. SWA invitation roles are not used, because they were observed to be intermittently missing from valid sessions.
+- S4. An invitation is a member record with an email and no linked account. It links to the first account that signs in with that email and cannot be claimed by another account afterwards. Invitations do not expire; an admin removes an unused one.
 
 ### 7.2 Authorisation
 
-- S5. Route-level protection in `staticwebapp.config.json` covers every path, including `/api/*`. The default rule for `/*` requires an authenticated role. Only `/login`, `/.auth/*`, and hashed static assets are excepted.
-- S6. Every API function independently parses `x-ms-client-principal`, rejects requests with no principal or no accepted role, and never trusts a user id or role sent in the request body.
+- S5. Route-level protection in `staticwebapp.config.json` covers every path, including `/api/*`. The default rule for `/*` requires a signed-in user. Only `/login`, `/.auth/*`, and hashed static assets are excepted. Family data is protected by the membership check in S3 and S6.
+- S6. Every API function independently parses `x-ms-client-principal`, rejects requests with no principal or no active member record, and never trusts a user id or role sent in the request body.
 - S7. Admin-only operations (invite, remove member, delete list, export) check for the `admin` role inside the function, not just at the route.
 - S8. Every write records `createdBy` / `updatedBy` from the principal, never from client input.
 
@@ -261,7 +261,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 
 - S27. The system stores only what the features need: display name, email (from the provider), role, and the family's own content. No date of birth, no addresses beyond free-text event locations, no photos.
 - S28. Data about children is entered by their parents and only visible to invited family. There is no public or shareable surface in v1.
-- S29. An admin can delete all data for the family in one action (empty the container). This satisfies the family's own right to erasure and makes decommissioning clean.
+- S29. An admin can delete all data for the family in one action, leaving only that admin's own member record so they can still sign in. This satisfies the family's own right to erasure and makes decommissioning clean.
 - S30. A Google calendar feed address is a secret: anyone holding it can read that calendar. It lives only in application settings (S19), is never sent to the browser and is never logged (S23). Only `https://calendar.google.com/` addresses are fetched, so a bad setting cannot point the API elsewhere. If an address leaks, reset it in Google Calendar and update the setting.
 
 ---
