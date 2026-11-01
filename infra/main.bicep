@@ -77,6 +77,20 @@ resource roleAssignment 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignment
   }
 }
 
+// Request and warning logs from the functions (S23, S24). The daily cap keeps it inside the free allowance.
+resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: '${name}-logs'
+  location: location
+  properties: { sku: { name: 'PerGB2018' }, retentionInDays: 30, workspaceCapping: { dailyQuotaGb: json('0.1') } }
+}
+
+resource insights 'Microsoft.Insights/components@2020-02-02' = {
+  name: '${name}-insights'
+  location: location
+  kind: 'web'
+  properties: { Application_Type: 'web', WorkspaceResourceId: logs.id }
+}
+
 // Budget alert (S26). Budgets are subscription- or resource-group-scoped; this one covers the resource group.
 resource budget 'Microsoft.Consumption/budgets@2023-11-01' = if (!empty(alertEmail)) {
   name: '${name}-budget'
@@ -94,3 +108,4 @@ resource budget 'Microsoft.Consumption/budgets@2023-11-01' = if (!empty(alertEma
 
 output staticWebAppHost string = swa.properties.defaultHostname
 output cosmosEndpoint string = cosmos.properties.documentEndpoint
+output insightsConnectionString string = insights.properties.ConnectionString

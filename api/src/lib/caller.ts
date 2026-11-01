@@ -16,6 +16,15 @@ export function familyId(): string {
   return process.env.FAMILY_ID ?? 'home'
 }
 
+/** Role names only, for the auth failure log. Never log the header itself (S23). */
+export function principalRoles(principalHeader: string | null | undefined): string {
+  try {
+    return (JSON.parse(Buffer.from(principalHeader ?? '', 'base64').toString('utf8')).userRoles ?? []).join(',') || 'none'
+  } catch {
+    return 'unreadable'
+  }
+}
+
 /**
  * The single place that turns a request into a caller (section 6, S6).
  * Static Web Apps is the authority on who is invited and with what role;

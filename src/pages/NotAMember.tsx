@@ -21,6 +21,9 @@ export function NotAMember() {
         <img className="logo" src="/icons/icon.svg" alt="" />
         <h1>Not a member of this family</h1>
         <p className="muted">You have signed in, but this account has not been invited to the family planner. Ask a parent for an invitation link, then sign in again with the same account.</p>
+        <p className="muted small">
+          Reason: {params.get('from') === 'api' ? 'refused by the API' : 'no role in this session'}. Roles: {data.userRoles.join(', ')}. {new Date().toISOString()}
+        </p>
         <a className="btn" href="/.auth/logout?post_logout_redirect_uri=/login" style={{ width: '100%' }}>
           Sign out
         </a>

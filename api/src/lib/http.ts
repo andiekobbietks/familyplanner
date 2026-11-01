@@ -1,5 +1,5 @@
 import { app, type HttpMethod, type HttpRequest, type InvocationContext } from '@azure/functions'
-import { getCaller } from './caller'
+import { getCaller, principalRoles } from './caller'
 import { HttpError } from './errors'
 import { ValidationError } from './schemas'
 import { getStore, type Store } from './store'
@@ -65,7 +65,7 @@ export async function run(
   } catch (e) {
     if (e instanceof HttpError) {
       status = e.status
-      if (status === 401 || status === 403) context.warn(`auth failed: ${e.code} user=${userId}`)
+      if (status === 401 || status === 403) context.warn(`auth failed: ${e.code} user=${userId} roles=${principalRoles(req.headers.get('x-ms-client-principal'))}`)
       return { status, jsonBody: { error: e.message, code: e.code } }
     }
     if (e instanceof ValidationError) {
@@ -73,7 +73,7 @@ export async function run(
       return { status, jsonBody: { error: e.message, code: 'VALIDATION' } }
     }
     status = 500
-    context.error(`unhandled: ${(e as Error).message}`)
+    context.error(`unhandled: ${req.method} /api/${path}: ${(e as Error).message}`)
     return { status, jsonBody: { error: 'Something went wrong', code: 'INTERNAL' } }
   } finally {
     context.log(`${req.method} /api/${path} ${status} ${Date.now() - started}ms user=${userId}`)
