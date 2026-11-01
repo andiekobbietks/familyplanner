@@ -44,6 +44,8 @@ API tests cover the acceptance criteria that can be checked without a browser: A
 
 Azure managed functions cannot use a managed identity, so the API signs in to Cosmos DB as a service principal (S18).
 
+Static Web Apps is not offered in UK South, so the app and its functions run in West Europe while Cosmos DB stays in UK South. `AZURE_STATIC_WEB_APPS_API_TOKEN` must exist before the first push to `main`.
+
 1. Create the identity and note `appId`, `password` and `tenant`: `az ad sp create-for-rbac --name familyplanner-api`. Then get its object id: `az ad sp show --id <appId> --query id -o tsv`.
 2. `az group create -n rg-familyplanner -l uksouth`
 3. `az deployment group create -g rg-familyplanner -f infra/main.bicep -p apiPrincipalId=<object id> alertEmail=<you>`
