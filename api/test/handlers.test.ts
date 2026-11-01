@@ -38,6 +38,12 @@ describe('getCaller', () => {
     expect(c.memberId).toBe('m-jo')
     expect(c.role).toBe('admin')
   })
+  it('two accounts with no userDetails stay separate members', async () => {
+    const a = await getCaller(principal('blank-a', '', ['admin']), store)
+    const b = await getCaller(principal('blank-b', '', ['member']), store)
+    expect(a.memberId).not.toBe(b.memberId)
+    expect((await getCaller(principal('blank-a', '', ['admin']), store)).memberId).toBe(a.memberId)
+  })
   it('A5: a removed member fails on the next request', async () => {
     await removeMember(ctx, { id: 'm-charlie' }, q(), undefined)
     await expect(getCaller(principal('dev-charlie', 'charlie@example.com', ['member']), store)).rejects.toMatchObject({ status: 403 })

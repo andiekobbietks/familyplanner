@@ -41,7 +41,8 @@ export async function getCaller(principalHeader: string | null | undefined, stor
   const members = await store.byType<Member>(fid, 'member')
   let member =
     members.find((m) => m.providerUserId === principal.userId) ??
-    members.find((m) => m.email.toLowerCase() === email)
+    // Static Web Apps can leave userDetails blank, and blank must not match another blank member.
+    (email ? members.find((m) => m.email.toLowerCase() === email) : undefined)
 
   const now = nowIso()
   if (!member) {
