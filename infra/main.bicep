@@ -15,6 +15,8 @@ param apiPrincipalId string
 @description('Monthly spend that triggers the budget alert, in GBP (S26).')
 param budgetAmount int = 5
 param alertEmail string = ''
+@description('First of a month, and not before the current month. Azure rejects anything earlier.')
+param budgetStart string = '${utcNow('yyyy-MM')}-01'
 
 // One Static Web App, Free tier, with managed functions (section 6). Deployed from GitHub Actions with a deployment token.
 resource swa 'Microsoft.Web/staticSites@2023-12-01' = {
@@ -81,7 +83,7 @@ resource budget 'Microsoft.Consumption/budgets@2023-11-01' = if (!empty(alertEma
     category: 'Cost'
     amount: budgetAmount
     timeGrain: 'Monthly'
-    timePeriod: { startDate: '2026-10-01' }
+    timePeriod: { startDate: budgetStart }
     notifications: {
       over80: { enabled: true, operator: 'GreaterThan', threshold: 80, contactEmails: [ alertEmail ] }
       over100: { enabled: true, operator: 'GreaterThan', threshold: 100, contactEmails: [ alertEmail ] }
