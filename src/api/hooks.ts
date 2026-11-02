@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Settings, Task } from './types'
+import type { Chore, ChoreSchedule, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Task } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -33,6 +33,11 @@ export function useCalendarEvents(from: string, to: string) {
 
 export const usePlan = (monday: string) => useQuery({ queryKey: ['plan', monday], queryFn: () => api<PlanEntry[]>(`/plan?week=${monday}`) })
 
+/** The whole collection, so that search and plan cells work from one cached read. */
+export const useRecipes = () => useQuery({ queryKey: ['recipes'], queryFn: () => api<Recipe[]>('/recipes'), staleTime: 5 * 60_000 })
+
+export const useChores = (monday: string) => useQuery({ queryKey: ['chores', monday], queryFn: () => api<ChoreSchedule>(`/chores?week=${monday}`) })
+
 export const useMembers = () => useQuery({ queryKey: ['members'], queryFn: () => api<MemberRecord[]>('/members') })
 
 /** Mutation helper that invalidates the given query roots afterwards. */
@@ -60,6 +65,17 @@ export const mutations = {
     api<PlanEntry>(`/plan/${date}/${slot}`, { method: 'PUT', json: body }),
   clearCell: (date: string, slot: string) => api<void>(`/plan/${date}/${slot}`, { method: 'DELETE' }),
   copyWeek: (week: string) => api<{ copied: number }>('/plan/copy-week', { method: 'POST', json: { week } }),
+
+  createRecipe: (body: RecipeInput) => api<Recipe>('/recipes', { method: 'POST', json: body }),
+  patchRecipe: (id: string, body: Partial<RecipeInput>) => api<Recipe>(`/recipes/${id}`, { method: 'PATCH', json: body }),
+  deleteRecipe: (id: string) => api<void>(`/recipes/${id}`, { method: 'DELETE' }),
+
+  createChore: (name: string) => api<Chore>('/chores', { method: 'POST', json: { name } }),
+  renameChore: (id: string, name: string) => api<Chore>(`/chores/${id}`, { method: 'PATCH', json: { name } }),
+  deleteChore: (id: string) => api<void>(`/chores/${id}`, { method: 'DELETE' }),
+  assignChore: (id: string, week: string, memberId: string) => api<void>(`/chores/${id}/weeks/${week}`, { method: 'PUT', json: { memberId } }),
+  unassignChore: (id: string, week: string) => api<void>(`/chores/${id}/weeks/${week}`, { method: 'DELETE' }),
+  copyChoreWeek: (week: string) => api<{ copied: number }>('/chores/copy-week', { method: 'POST', json: { week } }),
 
   patchMe: (body: { displayName?: string; colour?: string }) => api<Me>('/me', { method: 'PATCH', json: body }),
   patchSettings: (body: { breakfastEnabled?: boolean; defaultListId?: string | null }) => api<Settings>('/settings', { method: 'PATCH', json: body }),

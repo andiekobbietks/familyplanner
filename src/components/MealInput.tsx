@@ -1,8 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { mutations } from '../api/hooks'
+import { Link } from 'react-router-dom'
+import { mutations, useRecipes } from '../api/hooks'
 import type { PlanEntry, Slot } from '../api/types'
 import { fmtDay, mondayOf } from '../lib/dates'
+import { findRecipe } from '../lib/recipes'
+import { Icon } from './Icons'
 import { useToast } from './Toast'
 
 let saving = 0
@@ -30,11 +33,16 @@ export function useSetCell() {
   }
 }
 
-/** One slot of the plan: type, then move on. Saves on Enter or on leaving the field; clearing the text clears the cell. */
+/**
+ * One slot of the plan: type, then move on. Saves on Enter or on leaving the field; clearing the text clears the cell.
+ * The plan stays plain text: a cell links to a recipe only because its text is that recipe's title.
+ */
 export function MealInput({ date, slot, saved = '' }: { date: string; slot: Slot; saved?: string }) {
   const [value, setValue] = useState(saved)
   const ref = useRef<HTMLTextAreaElement>(null)
   const setCell = useSetCell()
+  const { data: recipes = [] } = useRecipes()
+  const recipe = findRecipe(recipes, saved)
 
   useEffect(() => {
     if (document.activeElement !== ref.current) setValue(saved)
@@ -69,22 +77,29 @@ export function MealInput({ date, slot, saved = '' }: { date: string; slot: Slot
   }
 
   return (
-    <textarea
-      ref={ref}
-      className="meal-input"
-      rows={1}
-      value={value}
-      placeholder={`Add ${slot}`}
-      aria-label={`${slot} on ${fmtDay(date)}`}
-      maxLength={200}
-      enterKeyHint="next"
-      autoCapitalize="sentences"
-      onChange={(e) => setValue(e.target.value.replace(/\s*\n\s*/g, ' '))}
-      onKeyDown={onKeyDown}
-      onBlur={(e) => {
-        if (e.currentTarget.dataset.cancelled) delete e.currentTarget.dataset.cancelled
-        else commit()
-      }}
-    />
+    <>
+      <textarea
+        ref={ref}
+        className="meal-input"
+        rows={1}
+        value={value}
+        placeholder={`Add ${slot}`}
+        aria-label={`${slot} on ${fmtDay(date)}`}
+        maxLength={200}
+        enterKeyHint="next"
+        autoCapitalize="sentences"
+        onChange={(e) => setValue(e.target.value.replace(/\s*\n\s*/g, ' '))}
+        onKeyDown={onKeyDown}
+        onBlur={(e) => {
+          if (e.currentTarget.dataset.cancelled) delete e.currentTarget.dataset.cancelled
+          else commit()
+        }}
+      />
+      {recipe && (
+        <Link className="icon-btn recipe-link" to={`/meals/recipes/${recipe.id}`} aria-label={`Recipe for ${recipe.title}`} title="Open recipe">
+          <Icon name="book" size={18} />
+        </Link>
+      )}
+    </>
   )
 }

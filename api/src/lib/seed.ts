@@ -1,6 +1,6 @@
 import { PALETTE } from './caller'
 import { addDays, mondayOf } from './dates'
-import type { BaseDoc, Item, List, Member, PlanEntry, Settings, Task } from './types'
+import type { BaseDoc, Chore, ChoreWeek, Item, List, Member, PlanEntry, Recipe, Settings, Task } from './types'
 
 /**
  * Sample household for local development. Only used when the memory store
@@ -60,7 +60,32 @@ export function seed(familyId: string): BaseDoc[] {
     { ...base(`plan:${addDays(monday, 6)}:dinner`, 'plan'), date: addDays(monday, 6), slot: 'dinner', text: 'Roast chicken' },
   ]
 
+  const recipes: Recipe[] = [
+    {
+      ...base('r-chicken', 'recipe'),
+      title: 'Roast chicken',
+      summary: 'A plain Sunday roast.',
+      serves: '4',
+      time: 'Prep 10 min, Cook 1 hr 30 min',
+      tags: ['chicken', 'roast', 'sunday'],
+      ingredients: '1 chicken, about 1.6 kg\n1 lemon\n1 tbsp olive oil\nSalt and pepper',
+      method: 'Heat the oven to 200°C.\nPut the lemon inside the chicken, rub with oil and season.\nRoast for 1 hour 20 minutes, then rest for 15 minutes.',
+      notes: 'Save the carcass for stock.',
+    },
+  ]
+
+  const chores: Chore[] = [
+    { ...base('c-bins', 'chore'), name: 'Bins' },
+    { ...base('c-bathroom', 'chore'), name: 'Clean the bathroom' },
+    { ...base('c-hoover', 'chore'), name: 'Hoover' },
+  ]
+
+  const choreWeeks: ChoreWeek[] = [
+    { ...base(`chorewk:${monday}:c-bins`, 'choreWeek'), week: monday, choreId: 'c-bins', memberId: 'm-tim' },
+    { ...base(`chorewk:${monday}:c-bathroom`, 'choreWeek'), week: monday, choreId: 'c-bathroom', memberId: 'm-jo' },
+  ]
+
   const settings: Settings = { ...base('settings', 'settings'), id: 'settings', breakfastEnabled: false, defaultListId: 'l-groceries' }
 
-  return [...members, ...lists, ...items, ...tasks, ...plan, settings]
+  return [...members, ...lists, ...items, ...tasks, ...plan, ...recipes, ...chores, ...choreWeeks, settings]
 }

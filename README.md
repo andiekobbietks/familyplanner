@@ -1,6 +1,6 @@
 # FamilyPlanner
 
-A small private website for one household: a view of the family's Google calendars, shopping lists, to-dos and a weekly meal plan. See `req.md` for the full requirements. This is the v1 draft.
+A small private website for one household: a view of the family's Google calendars, shopping lists, to-dos, a weekly chore schedule, a weekly meal plan and the family's recipes. See `req.md` for the full requirements. This is the v1 draft.
 
 ## Layout
 
@@ -44,7 +44,15 @@ npm test            # client unit tests, then api unit tests
 npm run typecheck
 ```
 
-API tests cover the acceptance criteria that can be checked without a browser: A1, A2, A5, A9c, A9d, A12, A13, plus clock changes, recurring events, and moved and deleted occurrences in Google feeds. They also run the parts of `infra/family-invites.gs` that need no Google services, against simulated Outlook invites.
+API tests cover the acceptance criteria that can be checked without a browser: A1, A2, A5, A9c, A9d, A9g, A10, A12, A13, plus clock changes, recurring events, and moved and deleted occurrences in Google feeds. They also run the parts of `infra/family-invites.gs` that need no Google services, against simulated Outlook invites.
+
+Client tests include the org recipe parser, which is exercised with the awkward shapes from a real recipe file.
+
+## Importing recipes
+
+Recipes live in the app. To bring in an org file, sign in as an admin, open Settings, and choose the file under **Import recipes**. Each top-level heading becomes a recipe (see requirements section 5.8 for the format). The browser reads the file and creates the recipes through the API, so it works against the live site, which a script on a laptop can't reach (S20).
+
+Titles the app already has are skipped, so the import can be run again after adding to the file, and it never overwrites an edit made in the app.
 
 ## Deploy
 

@@ -58,7 +58,7 @@ export const removeMember: Handler = async ({ store, caller }, params) => {
 }
 
 export const exportAll: Handler = async ({ store, caller, now }) => {
-  const types = ['member', 'event', 'list', 'item', 'task', 'meal', 'plan', 'settings'] as const
+  const types = ['member', 'event', 'list', 'item', 'task', 'meal', 'plan', 'recipe', 'chore', 'choreWeek', 'settings'] as const
   const out: Record<string, unknown> = { exportedAt: now.toISOString(), familyId: caller.familyId }
   for (const t of types) out[t] = await store.byType(caller.familyId, t)
   return { body: out }

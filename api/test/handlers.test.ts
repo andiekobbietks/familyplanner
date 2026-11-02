@@ -8,8 +8,10 @@ import { setPlanCell, copyWeek, getPlan } from '../src/handlers/plan'
 import { patchMe } from '../src/handlers/me'
 import { createTask, deleteTask, patchTask } from '../src/handlers/tasks'
 import { addItem, deleteItem, getItems, patchItem } from '../src/handlers/lists'
-import { erase, invite, removeMember } from '../src/handlers/admin'
-import type { BaseDoc, Caller, Item, List, Member } from '../src/lib/types'
+import { erase, exportAll, invite, removeMember } from '../src/handlers/admin'
+import { assignChore, copyChoreWeek, createChore, deleteChore, getChores, patchChore, unassignChore } from '../src/handlers/chores'
+import { createRecipe, deleteRecipe, getRecipes, patchRecipe } from '../src/handlers/recipes'
+import type { BaseDoc, Caller, Chore, ChoreWeek, Item, List, Member, Recipe } from '../src/lib/types'
 import { ValidationError } from '../src/lib/schemas'
 import { stamp } from '../src/lib/util'
 
@@ -121,6 +123,124 @@ describe('copy week', () => {
     expect(r.body).toEqual({ copied: 2 })
     const fri = await store.get<BaseDoc & { text: string }>('home', 'plan:2026-09-25:dinner', 'plan')
     expect(fri?.text).toBe('Friday stays')
+  })
+})
+
+describe('recipes', () => {
+  const create = async (body: unknown) => (await createRecipe(ctx, {}, q(), body)).body as Recipe
+
+  it('needs only a title, and fills in the empty text', async () => {
+    const r = await create({ title: 'Beef and broccoli', source: 'https://example.com/beef' })
+    expect(r).toMatchObject({ type: 'recipe', tags: [], ingredients: '', method: '', notes: '', createdBy: 'm-tim' })
+  })
+  it('lists alphabetically', async () => {
+    await store.deleteAll('home')
+    await create({ title: 'Paella' })
+    await create({ title: 'Apple pancakes' })
+    const { body } = await getRecipes(ctx, {}, q(), undefined)
+    expect((body as Recipe[]).map((r) => r.title)).toEqual(['Apple pancakes', 'Paella'])
+  })
+  it('S8: audit fields in the body are ignored', async () => {
+    const r = await create({ title: 'Paella', createdBy: 'm-charlie', familyId: 'other' })
+    expect(r).toMatchObject({ createdBy: 'm-tim', familyId: 'home' })
+  })
+  it('caps the title at 200 and each text block at 10,000', async () => {
+    await expect(create({ title: 'x'.repeat(201) })).rejects.toBeInstanceOf(ValidationError)
+    await expect(create({ title: 'Paella', method: 'x'.repeat(10001) })).rejects.toBeInstanceOf(ValidationError)
+    expect((await create({ title: 'Paella', method: 'x'.repeat(10000) })).method).toHaveLength(10000)
+  })
+  it('a patch changes only the fields sent', async () => {
+    const r = await create({ title: 'Paella', ingredients: 'Rice', tags: ['rice'] })
+    const { body } = await patchRecipe(ctx, { id: r.id }, q(), { method: 'Cook it' })
+    expect(body).toMatchObject({ title: 'Paella', ingredients: 'Rice', tags: ['rice'], method: 'Cook it' })
+  })
+  it('delete removes it, and other document types are out of reach', async () => {
+    const r = await create({ title: 'Paella' })
+    await deleteRecipe(ctx, { id: r.id }, q(), undefined)
+    expect(await store.get('home', r.id, 'recipe')).toBeUndefined()
+    await expect(deleteRecipe(ctx, { id: 'm-tim' }, q(), undefined)).rejects.toMatchObject({ status: 404 })
+    await expect(patchRecipe(ctx, { id: 'm-tim' }, q(), { title: 'x' })).rejects.toMatchObject({ status: 404 })
+  })
+})
+
+describe('chores', () => {
+  const week = '2026-09-21'
+  const next = '2026-09-28'
+  const add = async (name: string) => ((await createChore(ctx, {}, q(), { name })).body as Chore).id
+  const read = async (w: string) => (await getChores(ctx, {}, q(`week=${w}`), undefined)).body as { chores: { id: string; name: string }[]; assignments: { choreId: string; memberId: string }[] }
+
+  beforeEach(() => store.deleteAll('home').then(() => store.upsert(stamp(tim, 'member', { displayName: 'Tim', email: 'tim@example.com', role: 'admin' as const, colour: '#000000', active: true }, 'm-tim'))))
+
+  it('an assignment belongs to one week', async () => {
+    const id = await add('Bins')
+    await assignChore(ctx, { id, week }, q(), { memberId: 'm-tim' })
+    expect((await read(week)).assignments).toEqual([{ choreId: id, memberId: 'm-tim' }])
+    expect((await read(next)).assignments).toEqual([])
+    expect((await read(next)).chores).toEqual([{ id, name: 'Bins' }])
+  })
+  it('any day of the week means that week', async () => {
+    const id = await add('Bins')
+    await assignChore(ctx, { id, week: '2026-09-24' }, q(), { memberId: 'm-tim' })
+    expect((await read('2026-09-27')).assignments).toHaveLength(1)
+  })
+  it('reassigning replaces, and unassigning clears', async () => {
+    await store.upsert(stamp(tim, 'member', { displayName: 'Jo', email: 'jo@example.com', role: 'admin' as const, colour: '#000000', active: true }, 'm-jo'))
+    const id = await add('Bins')
+    await assignChore(ctx, { id, week }, q(), { memberId: 'm-tim' })
+    await assignChore(ctx, { id, week }, q(), { memberId: 'm-jo' })
+    expect((await read(week)).assignments).toEqual([{ choreId: id, memberId: 'm-jo' }])
+    await unassignChore(ctx, { id, week }, q(), undefined)
+    expect((await read(week)).assignments).toEqual([])
+  })
+  it('rejects a person who is not an active member', async () => {
+    const id = await add('Bins')
+    await store.upsert(stamp(tim, 'member', { displayName: 'Gone', email: 'gone@example.com', role: 'member' as const, colour: '#000000', active: false }, 'm-gone'))
+    await expect(assignChore(ctx, { id, week }, q(), { memberId: 'nobody' })).rejects.toMatchObject({ status: 400 })
+    await expect(assignChore(ctx, { id, week }, q(), { memberId: 'm-gone' })).rejects.toMatchObject({ status: 400 })
+  })
+  it('rejects an unknown chore and a bad week', async () => {
+    await expect(assignChore(ctx, { id: 'm-tim', week }, q(), { memberId: 'm-tim' })).rejects.toMatchObject({ status: 404 })
+    await expect(getChores(ctx, {}, q('week=soon'), undefined)).rejects.toBeInstanceOf(ValidationError)
+  })
+  it('copy fills gaps from last week, keeps what is set and skips people who have left', async () => {
+    await store.upsert(stamp(tim, 'member', { displayName: 'Jo', email: 'jo@example.com', role: 'admin' as const, colour: '#000000', active: true }, 'm-jo'))
+    await store.upsert(stamp(tim, 'member', { displayName: 'Charlie', email: 'c@example.com', role: 'member' as const, colour: '#000000', active: true }, 'm-charlie'))
+    const [bins, hoover, oven] = [await add('Bins'), await add('Hoover'), await add('Oven')]
+    await assignChore(ctx, { id: bins, week }, q(), { memberId: 'm-tim' })
+    await assignChore(ctx, { id: hoover, week }, q(), { memberId: 'm-tim' })
+    await assignChore(ctx, { id: oven, week }, q(), { memberId: 'm-charlie' })
+    await assignChore(ctx, { id: hoover, week: next }, q(), { memberId: 'm-jo' })
+    await removeMember(ctx, { id: 'm-charlie' }, q(), undefined)
+
+    expect((await copyChoreWeek(ctx, {}, q(), { week: next })).body).toEqual({ copied: 1 })
+    const got = (await read(next)).assignments
+    expect(got).toHaveLength(2)
+    expect(got).toContainEqual({ choreId: bins, memberId: 'm-tim' })
+    expect(got).toContainEqual({ choreId: hoover, memberId: 'm-jo' })
+  })
+  it('deleting a chore removes its weeks and no other chore\'s', async () => {
+    const [bins, hoover] = [await add('Bins'), await add('Hoover')]
+    await assignChore(ctx, { id: bins, week }, q(), { memberId: 'm-tim' })
+    await assignChore(ctx, { id: bins, week: next }, q(), { memberId: 'm-tim' })
+    await assignChore(ctx, { id: hoover, week }, q(), { memberId: 'm-tim' })
+    await deleteChore(ctx, { id: bins }, q(), undefined)
+    const left = await store.byType<ChoreWeek>('home', 'choreWeek')
+    expect(left.map((a) => a.choreId)).toEqual([hoover])
+  })
+  it('renames', async () => {
+    const id = await add('Bins')
+    await patchChore(ctx, { id }, q(), { name: 'Recycling' })
+    expect((await read(week)).chores[0].name).toBe('Recycling')
+  })
+})
+
+describe('export', () => {
+  it('A10: includes recipes and chores', async () => {
+    const { body } = await exportAll(ctx, {}, q(), undefined)
+    const out = body as Record<string, BaseDoc[]>
+    expect(out.recipe.length).toBeGreaterThan(0)
+    expect(out.chore.length).toBeGreaterThan(0)
+    expect(out.choreWeek.length).toBeGreaterThan(0)
   })
 })
 

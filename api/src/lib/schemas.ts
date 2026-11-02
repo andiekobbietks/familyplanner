@@ -5,11 +5,12 @@ import { CATEGORIES } from './types'
 /**
  * Every request body passes through one of these before use (S13). Zod's
  * default object mode strips unknown keys, so a smuggled `role` field never
- * reaches a handler (A12). Lengths are capped: titles 200, notes 2000.
+ * reaches a handler (A12). Lengths are capped: titles 200, notes 2000, recipe text 10,000.
  */
 const title = z.string().trim().min(1, 'Required').max(200)
 const short = z.string().trim().max(200)
 const long = z.string().trim().max(2000)
+const recipeText = z.string().trim().max(10000)
 const id = z.string().min(1).max(64)
 const dateStr = z.string().refine(isValidDate, 'Expected YYYY-MM-DD')
 export const listSchema = z.object({ name: title })
@@ -35,6 +36,22 @@ export const slotSchema = z.enum(['breakfast', 'lunch', 'dinner'])
 export const dateSchema = dateStr
 
 export const copyWeekSchema = z.object({ week: dateStr })
+
+export const recipeSchema = z.object({
+  title,
+  summary: long.optional(),
+  serves: short.optional(),
+  time: short.optional(),
+  source: short.optional(),
+  tags: z.array(z.string().trim().min(1).max(50)).max(30).optional(),
+  ingredients: recipeText.optional(),
+  method: recipeText.optional(),
+  notes: recipeText.optional(),
+})
+export const recipePatchSchema = recipeSchema.partial()
+
+export const choreSchema = z.object({ name: title })
+export const choreAssignSchema = z.object({ memberId: id })
 
 export const settingsPatchSchema = z.object({
   breakfastEnabled: z.boolean().optional(),

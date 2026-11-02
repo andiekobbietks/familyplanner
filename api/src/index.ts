@@ -1,9 +1,11 @@
 import { route } from './lib/http'
 import * as admin from './handlers/admin'
+import * as chores from './handlers/chores'
 import * as events from './handlers/events'
 import * as lists from './handlers/lists'
 import * as me from './handlers/me'
 import * as plan from './handlers/plan'
+import * as recipes from './handlers/recipes'
 import * as tasks from './handlers/tasks'
 
 const ADMIN = { roles: ['admin' as const] }
@@ -33,6 +35,19 @@ route('plan-get', 'GET', 'plan', ANY, plan.getPlan)
 route('plan-copy', 'POST', 'plan/copy-week', ANY, plan.copyWeek)
 route('plan-set', 'PUT', 'plan/{date}/{slot}', ANY, plan.setPlanCell)
 route('plan-clear', 'DELETE', 'plan/{date}/{slot}', ANY, plan.clearPlanCell)
+
+route('recipes-get', 'GET', 'recipes', ANY, recipes.getRecipes)
+route('recipes-create', 'POST', 'recipes', ANY, recipes.createRecipe)
+route('recipes-patch', 'PATCH', 'recipes/{id}', ANY, recipes.patchRecipe)
+route('recipes-delete', 'DELETE', 'recipes/{id}', ANY, recipes.deleteRecipe)
+
+route('chores-get', 'GET', 'chores', ANY, chores.getChores)
+route('chores-create', 'POST', 'chores', ANY, chores.createChore)
+route('chores-copy', 'POST', 'chores/copy-week', ANY, chores.copyChoreWeek)
+route('chores-patch', 'PATCH', 'chores/{id}', ANY, chores.patchChore)
+route('chores-delete', 'DELETE', 'chores/{id}', ANY, chores.deleteChore)
+route('chores-assign', 'PUT', 'chores/{id}/weeks/{week}', ANY, chores.assignChore)
+route('chores-unassign', 'DELETE', 'chores/{id}/weeks/{week}', ANY, chores.unassignChore)
 
 route('settings-get', 'GET', 'settings', ANY, admin.getSettings)
 route('settings-patch', 'PATCH', 'settings', ADMIN, admin.patchSettings)

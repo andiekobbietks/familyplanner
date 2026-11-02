@@ -6,10 +6,17 @@ import type { PlanEntry, Slot } from '../api/types'
 import { Icon } from '../components/Icons'
 import { MealInput, useSetCell } from '../components/MealInput'
 import { Modal } from '../components/Modal'
+import { PageTabs } from '../components/PageTabs'
 import { useToast } from '../components/Toast'
-import { addDays, fmtDay, fmtWeekday, mondayOf, todayISO, weekDays } from '../lib/dates'
+import { WeekNav } from '../components/WeekNav'
+import { fmtDay, fmtWeekday, mondayOf, todayISO, weekDays } from '../lib/dates'
 
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
+
+export const MEAL_TABS = [
+  { to: '/meals', label: 'Plan', end: true },
+  { to: '/meals/recipes', label: 'Recipes' },
+]
 
 export function MealPlan() {
   const today = todayISO()
@@ -44,23 +51,8 @@ export function MealPlan() {
 
   return (
     <>
-      <div className="page-head">
-        <div className="grow">
-          <h1>{week === mondayOf(today) ? 'This week' : week === addDays(mondayOf(today), 7) ? 'Next week' : `Week of ${fmtDay(week)}`}</h1>
-          <p className="muted small">
-            {fmtDay(week)} to {fmtDay(addDays(week, 6))}
-          </p>
-        </div>
-        <button className="icon-btn boxed" type="button" onClick={() => setWeek(addDays(week, -7))} aria-label="Previous week">
-          <Icon name="left" />
-        </button>
-        <button className="btn sm" type="button" onClick={() => setWeek(mondayOf(today))}>
-          Today
-        </button>
-        <button className="icon-btn boxed" type="button" onClick={() => setWeek(addDays(week, 7))} aria-label="Next week">
-          <Icon name="right" />
-        </button>
-      </div>
+      <PageTabs tabs={MEAL_TABS} />
+      <WeekNav week={week} onChange={setWeek} />
 
       <div className="plan">
         {days.map((d) => (

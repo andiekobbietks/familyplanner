@@ -8,6 +8,8 @@ import { MealPlan } from './pages/MealPlan'
 import { Members } from './pages/Members'
 import { NotAMember } from './pages/NotAMember'
 import { Profile } from './pages/Profile'
+import { RecipeDetail } from './pages/RecipeDetail'
+import { Recipes } from './pages/Recipes'
 import { Settings } from './pages/Settings'
 import { Shopping } from './pages/Shopping'
 import { Todos } from './pages/Todos'
@@ -36,6 +38,8 @@ export default function App() {
         <Route path="/shopping" element={<Shopping />} />
         <Route path="/todos" element={<Todos />} />
         <Route path="/meals" element={<MealPlan />} />
+        <Route path="/meals/recipes" element={<Recipes />} />
+        <Route path="/meals/recipes/:id" element={<RecipeDetail />} />
         <Route path="/profile" element={<Profile />} />
         <Route
           path="/members"

@@ -76,6 +76,35 @@ export interface PlanEntry {
   slot: Slot
   text: string
 }
+/** Ingredients, method and notes are plain text, one entry per line. A line ending in a colon is a subheading. */
+export interface RecipeInput {
+  title: string
+  summary?: string
+  serves?: string
+  time?: string
+  source?: string
+  tags: string[]
+  ingredients: string
+  method: string
+  notes: string
+}
+export interface Recipe extends RecipeInput {
+  id: string
+}
+
+export interface Chore {
+  id: string
+  name: string
+}
+export interface ChoreAssignment {
+  choreId: string
+  memberId: string
+}
+export interface ChoreSchedule {
+  chores: Chore[]
+  assignments: ChoreAssignment[]
+}
+
 export interface Settings {
   breakfastEnabled: boolean
   defaultListId?: string

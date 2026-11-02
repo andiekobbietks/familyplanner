@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { mutations, useMe, useTasks } from '../api/hooks'
 import type { Task } from '../api/types'
 import { Icon } from '../components/Icons'
@@ -7,8 +8,15 @@ import { Modal } from '../components/Modal'
 import { Avatar, PersonChips, usePersonMap } from '../components/People'
 import { useToast } from '../components/Toast'
 import { fmtDay, relativeDay, todayISO } from '../lib/dates'
+import { Chores } from './Chores'
 
 type View = 'mine' | 'all' | 'done'
+const TABS = [
+  ['mine', 'Mine'],
+  ['all', 'Everyone'],
+  ['chores', 'Chores'],
+  ['done', 'Done'],
+] as const
 
 /** One tap completes; the toast offers undo for five seconds (section 5.5). */
 export function useSetTaskDone(view: View) {
@@ -33,7 +41,24 @@ export function useSetTaskDone(view: View) {
 }
 
 export function Todos() {
-  const [view, setView] = useState<View>('mine')
+  const [params, setParams] = useSearchParams()
+  const tab = TABS.find(([key]) => key === params.get('view'))?.[0] ?? 'mine'
+  return (
+    <>
+      <h1>To-dos</h1>
+      <div className="tabs" role="tablist">
+        {TABS.map(([key, label]) => (
+          <button key={key} role="tab" aria-selected={tab === key} onClick={() => setParams({ view: key }, { replace: true })}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === 'chores' ? <Chores /> : <TaskList view={tab} />}
+    </>
+  )
+}
+
+function TaskList({ view }: { view: View }) {
   const { data: tasks = [], isLoading } = useTasks(view)
   const { data: me } = useMe()
   const people = usePersonMap()
@@ -64,15 +89,6 @@ export function Todos() {
 
   return (
     <>
-      <h1>To-dos</h1>
-      <div className="tabs" role="tablist">
-        {(['mine', 'all', 'done'] as View[]).map((v) => (
-          <button key={v} role="tab" aria-selected={view === v} onClick={() => setView(v)}>
-            {v === 'mine' ? 'Mine' : v === 'all' ? 'Everyone' : 'Done'}
-          </button>
-        ))}
-      </div>
-
       {view !== 'done' && (
         <form className="card" onSubmit={add}>
           <div className="row">

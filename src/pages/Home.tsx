@@ -1,9 +1,10 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { useCalendarEvents, useLists, useMe, usePlan, useSettings, useTasks } from '../api/hooks'
+import { useCalendarEvents, useChores, useLists, useMe, usePlan, useSettings, useTasks } from '../api/hooks'
 import type { Occurrence, PlanEntry, Slot, Task } from '../api/types'
 import { Icon } from '../components/Icons'
 import { MealInput } from '../components/MealInput'
+import { Avatar, usePersonMap } from '../components/People'
 import { QuickAdd } from '../components/QuickAdd'
 import { addDays, dateOfInstant, fmtDayLong, fmtTime, fmtWeekday, mondayOf, relativeDay, todayISO } from '../lib/dates'
 import { useSetTaskDone } from './Todos'
@@ -97,6 +98,8 @@ export function Home() {
           </ul>
         </section>
 
+        <ChoresThisWeek week={mondayOf(today)} />
+
         <section className="dash-shop" aria-labelledby="shop-h">
           <h2 id="shop-h" className="section-title">
             Shopping
@@ -115,6 +118,41 @@ export function Home() {
 
       <QuickAdd />
     </>
+  )
+}
+
+/** A read-only view of who has what. Assigning happens on the chores page. */
+function ChoresThisWeek({ week }: { week: string }) {
+  const { data } = useChores(week)
+  const people = usePersonMap()
+  if (!data?.chores.length) return null
+  return (
+    <section className="dash-chores" aria-labelledby="chores-h">
+      <div className="section-head">
+        <h2 id="chores-h" className="section-title">
+          Chores this week
+        </h2>
+        <Link to="/todos?view=chores">Schedule</Link>
+      </div>
+      <ul className="list card tight">
+        {data.chores.map((c) => {
+          const person = people.get(data.assignments.find((a) => a.choreId === c.id)?.memberId ?? '')
+          return (
+            <li key={c.id}>
+              <span className="grow">{c.name}</span>
+              {person ? (
+                <>
+                  <span className="muted small">{person.displayName}</span>
+                  <Avatar person={person} />
+                </>
+              ) : (
+                <span className="muted small">Anyone</span>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

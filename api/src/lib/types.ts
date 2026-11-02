@@ -1,5 +1,5 @@
 export type Role = 'admin' | 'member'
-export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings'
+export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings' | 'recipe' | 'chore' | 'choreWeek'
 export type Slot = 'breakfast' | 'lunch' | 'dinner'
 export const SLOTS: Slot[] = ['breakfast', 'lunch', 'dinner']
 export const CATEGORIES = ['Produce', 'Dairy', 'Bakery', 'Household', 'Other'] as const
@@ -71,6 +71,34 @@ export interface PlanEntry extends BaseDoc {
   mealId?: string
 }
 
+/** Ingredients, method and notes are plain text, one entry per line. A line ending in a colon is a subheading. */
+export interface Recipe extends BaseDoc {
+  type: 'recipe'
+  title: string
+  summary?: string
+  serves?: string
+  time?: string
+  source?: string
+  tags: string[]
+  ingredients: string
+  method: string
+  notes: string
+}
+
+export interface Chore extends BaseDoc {
+  type: 'chore'
+  name: string
+}
+
+/** Who has a chore in one week. At most one per chore per week, because the id is built from both. */
+export interface ChoreWeek extends BaseDoc {
+  type: 'choreWeek'
+  /** The Monday. */
+  week: string
+  choreId: string
+  memberId: string
+}
+
 export interface Settings extends BaseDoc {
   type: 'settings'
   id: 'settings'
@@ -78,7 +106,7 @@ export interface Settings extends BaseDoc {
   defaultListId?: string
 }
 
-export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Settings
+export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Recipe | Chore | ChoreWeek | Settings
 
 export interface Caller {
   memberId: string

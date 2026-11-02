@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { mutations, useLists, useSettings } from '../api/hooks'
+import { RecipeImport } from '../components/RecipeImport'
 import { useToast } from '../components/Toast'
 
 export function Settings() {
@@ -44,6 +45,8 @@ export function Settings() {
           </select>
         </label>
       </div>
+
+      <RecipeImport />
 
       <div className="card">
         <h2>Backup</h2>

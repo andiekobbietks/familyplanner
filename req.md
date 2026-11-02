@@ -7,7 +7,7 @@
 
 ## 1. Overview
 
-FamilyPlanner is a small private website for one household. It gives every family member a shared calendar, shopping lists, to-do lists and a weekly meal plan that stay in sync across phones and laptops. It is hosted on Azure Static Web Apps, costs close to nothing to run, and is reachable only by invited family members after a simple login.
+FamilyPlanner is a small private website for one household. It gives every family member a shared calendar, shopping lists, to-do lists, a weekly chore schedule, a weekly meal plan and the family's recipes, all in sync across phones and laptops. It is hosted on Azure Static Web Apps, costs close to nothing to run, and is reachable only by invited family members after a simple login.
 
 The product is deliberately small. It is not a general-purpose SaaS product. There is one family, a handful of users, and a strong preference for "boring", well-supported building blocks over clever ones. Security is a first-class requirement because the data describes where the family will be and when.
 
@@ -33,8 +33,8 @@ Explicitly out of scope for the first release:
 - Push notifications or reminders. Deferred to v2.
 - Real-time collaboration (WebSockets or SignalR). Polling on focus is sufficient for v1.
 - Creating, editing or deleting events in the planner, and writing to Google Calendar. Google Calendar is the single source of truth for events; the planner only displays them (Section 5.3).
-- Budgeting, chores with rewards, photo sharing. All possible later, none in v1.
-- Recipes in any form: a meal library, recipe import, ingredients, nutrition information, portion scaling. The meal planner is a plan of plain text, not a recipe manager.
+- Budgeting, chores with rewards, recurring or tracked chores, photo sharing. All possible later, none in v1.
+- Structured recipe data: nutrition information, portion scaling, ingredients as records. Recipes are plain text (Section 5.8) and the meal plan stays a plan of plain text.
 - Offline editing. The app should load its shell offline but does not need to queue writes.
 - Any AI features.
 - Integration with a home server (document storage, smart home). Planned for v2; Section 15 records what v1 does now to keep that door open.
@@ -78,6 +78,7 @@ The landing page after login. It answers "what's happening today?" first and let
 - A greeting and today's date.
 - A Today card: today's events in time order (past ones dimmed), today's lunch and dinner (and breakfast if enabled) as editable fields, and the current user's open tasks due today or overdue, each completed with one tap.
 - The next six days, one line each: that day's events and dinner. Tapping a day opens it with the same detail as Today, so tomorrow's dinner can be planned without leaving the page. From 15:00 tomorrow is open by default, since packed lunches are prepared the evening before. 
+- This week's chores and who has each one, linking to the schedule. Hidden until there are chores.
 - A tile per shopping list with its unchecked count, linking to the list.
 - A floating add button in thumb reach opens a sheet: type text, choose shopping or to-do, submit. It stays open for adding several things and defaults to the most recently used type.
 
@@ -114,7 +115,7 @@ Events created before this decision remain as `event` documents, are no longer d
 - Views: "Mine", "Everyone", and "Done" (last 30 days). "Mine" is the default.
 - Sorting: overdue first, then by due date, then undated. Done tasks sort by completion date descending.
 - Completing a task is a single tap on a checkbox. Undo is available for five seconds via a toast.
-- Simple recurring chores (repeat daily, weekly, every N weeks) are a v2 candidate. Do not build in v1, but do not store tasks in a way that makes it hard to add.
+- Chores are not tasks. They have their own weekly schedule (Section 5.9), shown as a tab on this page.
 
 ### 5.6 Meal planning
 
@@ -126,6 +127,7 @@ A week-at-a-glance plan of what the family is eating, as plain text.
 - Drag and drop between cells on desktop. On a phone, a move button on a filled cell picks a target day. Moving onto a filled cell swaps the two.
 - "Copy last week" fills the current week from the previous one, skipping cells already filled.
 - Any member can plan.
+- A cell whose text is exactly a recipe's title (ignoring case) shows a link to that recipe. Nothing else ties the two together, so copying weeks works as before and renaming a recipe only drops the link.
 
 Cells saved while the app had a meal library hold a `mealId` rather than text. The API returns the name of the old meal as their text and they become ordinary text when edited or copied. The old `meal` documents stay in the database, read-only, and appear in the export.
 
@@ -137,6 +139,29 @@ Cells saved while the app had a meal library hold a `mealId` rather than text. T
 - Each member can set their own display name and colour.
 - Planning settings: whether Breakfast is enabled (Lunch and Dinner are always on) and the default shopping list for quick add.
 - "Export all data" downloads a single JSON file containing every record. This doubles as the manual backup mechanism.
+- Import recipes from an org file (Section 5.8).
+
+### 5.8 Recipes
+
+The family's recipes, kept in the app. They sit on a Recipes tab beside the plan, so the bottom bar stays at five items.
+
+- A recipe has a title (required), summary, serves, time, source, tags, ingredients, method and notes. Serves and time are free text ("~8 pancakes", "6 hours 15 minutes plus resting time"). A recipe can be as little as a title and a link.
+- Ingredients, method and notes are plain text, one entry per line. A line ending in a colon is a subheading, which is how a cake and its glaze, or a sub-recipe, are kept apart. Method numbering restarts after a subheading.
+- The list can be searched by title, tag or ingredient and filtered by tag.
+- A source containing an `http(s)` address links to it. Nothing else in a recipe is ever a link, and everything renders as text (S14).
+- **Add to shopping.** A sheet lists the ingredients, all ticked, with the default list chosen. Untick what's in the cupboard and add the rest. Each ingredient line becomes one shopping item as written, without merging or quantities.
+- **Put on the plan.** Choose a day and meal and the title is written to that plan cell. If the cell is filled, the sheet says what will be replaced.
+- Any member can add, edit and delete recipes.
+- **Import.** An admin chooses an org file in Settings: one recipe per top-level heading, with `Ingredients`, `Method`, `Notes` and `Variations` sections, lists or `| Amount | Ingredient |` tables, and a property drawer. Any other section is treated as a sub-recipe. The file is parsed in the browser and the recipes are created through the normal API, because the production database cannot be reached from outside Azure (S20). The app is the home of a recipe once imported. A title the app already has is skipped, so an import can be repeated after the file has grown and never overwrites an edit.
+
+### 5.9 Chores
+
+A display of who has which chore each week. It records the plan and nothing else: any adult can do any chore, so there is no completing, no reminding and no rotation.
+
+- The family keeps one list of chores by name. Any member can add, rename or delete them. Deleting a chore removes it from every week.
+- The page shows one week at a time, Monday to Sunday, with previous and next navigation like the meal plan. Each chore shows the family's people as chips. Tap one to assign the chore for that week and tap again to clear it.
+- A chore has at most one person per week. With nobody assigned it reads as "Anyone".
+- "Copy last week" fills unassigned chores from the previous week, leaving those already set, and skips anyone who has since been removed.
 
 ---
 
@@ -164,7 +189,7 @@ Design points:
 - **Client** is a single-page app. All data access goes through `/api/*`. The client never talks to Cosmos DB directly and holds no secrets.
 - **API** is a small set of HTTP-triggered functions. Every handler follows the same pattern: resolve the caller, check role, validate body with a schema, perform the operation, return JSON.
 - **Caller resolution is one function.** `getCaller(req)` reads `x-ms-client-principal` and returns `{ memberId, role, familyId }`. Handlers never read the header themselves. In v2 this same function can accept a service credential for the home server without touching any handler.
-- **Database** is one Cosmos DB container with partition key `/familyId` and a `type` field discriminating documents (`list`, `item`, `task`, `plan`, `member`). One family means one hot partition, which is fine at this scale.
+- **Database** is one Cosmos DB container with partition key `/familyId` and a `type` field discriminating documents (`list`, `item`, `task`, `plan`, `recipe`, `chore`, `choreWeek`, `member`). One family means one hot partition, which is fine at this scale.
 - **Configuration** lives in SWA application settings: the database endpoint and names, the service principal's tenant, client id and secret (S18), and any Google calendar feed addresses (S30).
 
 ### 6.1 Cost estimate
@@ -212,7 +237,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 
 ### 7.4 Input handling and data
 
-- S13. Every API request body is validated against a schema (for example Zod) before use. Unknown fields are stripped. String lengths are capped (titles 200 characters, notes 2000 characters).
+- S13. Every API request body is validated against a schema (for example Zod) before use. Unknown fields are stripped. String lengths are capped (titles 200 characters, notes 2000 characters, recipe ingredients, method and notes 10,000 characters each).
 - S14. All user-entered text is rendered as text, never as HTML. No `dangerouslySetInnerHTML`. Markdown rendering, if ever added, must use a sanitising renderer.
 - S15. Cosmos DB queries use parameterised queries only. No string-concatenated query text.
 - S16. Every query is scoped to the caller's `familyId` even though v1 has one family. This is the multi-tenant safety rail.
@@ -251,7 +276,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 - **Timezone.** All display in the browser's local zone. The household is in `Europe/London`; the app must handle the two clock changes per year correctly for both timed and all-day events.
 - **Language.** English (UK) only. Dates displayed as `Mon 14 Sep`, times as 24-hour.
 - **Browser support.** Current versions of Safari on iOS, Chrome on Android, and Chrome, Firefox and Edge on desktop. No Internet Explorer.
-- **Data limits.** Assume up to 50 lists, 10,000 items, 5,000 tasks and 3,000 plan entries over the app's life. Nothing needs pagination in v1 beyond limiting agenda and done views to a date range.
+- **Data limits.** Assume up to 50 lists, 10,000 items, 5,000 tasks, 3,000 plan entries, 500 recipes and 5,000 chore weeks over the app's life. Nothing needs pagination in v1 beyond limiting agenda and done views to a date range.
 
 ---
 
@@ -269,9 +294,15 @@ item     { listId, name, note?, category?, checked: bool, checkedAt?, checkedBy?
 task     { title, dueDate?, assignee?, notes?, done: bool, completedAt?, completedBy? }
 
 plan     { date: "YYYY-MM-DD", slot: "breakfast"|"lunch"|"dinner", text }
+
+recipe   { title, summary?, serves?, time?, source?, tags: [string], ingredients, method, notes }
+
+chore    { name }
+
+choreWeek { week: "YYYY-MM-DD" (the Monday), choreId, memberId }
 ```
 
-Plan entries are keyed so that `(familyId, date, slot)` is unique. Settings that are family-wide (enabled meal slots, default shopping list) live on a single `settings` document with `id = "settings"`.
+Plan entries are keyed so that `(familyId, date, slot)` is unique, and chore weeks so that `(familyId, week, choreId)` is. Settings that are family-wide (enabled meal slots, default shopping list) live on a single `settings` document with `id = "settings"`.
 
 Soft delete is not needed. Deletes are real, and the periodic backup plus manual export cover mistakes.
 
@@ -300,6 +331,17 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | PUT | `/plan/{date}/{slot}` | Set or replace a cell |
 | DELETE | `/plan/{date}/{slot}` | Clear a cell |
 | POST | `/plan/copy-week` | Copy previous week into the given week (`{ "week": "YYYY-MM-DD" }`) |
+| GET | `/recipes` | All recipes |
+| POST | `/recipes` | Create recipe |
+| PATCH | `/recipes/{id}` | Update recipe |
+| DELETE | `/recipes/{id}` | Delete recipe |
+| GET | `/chores?week=YYYY-MM-DD` | Chores and that week's assignments |
+| POST | `/chores` | Create chore |
+| PATCH | `/chores/{id}` | Rename chore |
+| DELETE | `/chores/{id}` | Delete chore and all its weeks |
+| PUT | `/chores/{id}/weeks/{week}` | Assign a member for that week |
+| DELETE | `/chores/{id}/weeks/{week}` | Clear that week's assignment |
+| POST | `/chores/copy-week` | Fill unassigned chores from the previous week (`{ "week": "YYYY-MM-DD" }`) |
 | GET | `/settings` | Family-wide settings |
 | PATCH | `/settings` | Update settings (admin) |
 | GET | `/members` | Members (admin) |
@@ -348,7 +390,10 @@ Each of these should be demonstrable before v1 is called done.
 - A9a. On a phone, type a meal into an empty cell and press Enter. Focus moves to the next cell and the meal is still there after a reload. Emptying the cell clears it.
 - A9b. Wednesday's lunch and dinner appear on the dashboard on Wednesday and not on Tuesday. At 16:00 on Tuesday the dashboard also shows Wednesday's lunch. On a phone the week view shows seven days, each with both slots, without horizontal scrolling.
 - A9c. "Copy last week" onto a week that already has Friday filled leaves Friday untouched and fills the other six days.
-- A10. Export downloads a JSON file that contains every list, item, task, plan entry and member.
+- A9e. Importing the family's org file creates every recipe, and importing it again creates none. A recipe with subheadings, one with a sub-recipe and one with only a link all display correctly.
+- A9f. From a recipe, unticking one ingredient and adding the rest puts exactly those on the chosen list. Putting the recipe on the plan makes that cell link back to it.
+- A9g. A chore assigned this week appears on the dashboard with that person and is unassigned next week until "Copy last week" fills it, leaving any chore already assigned there untouched.
+- A10. Export downloads a JSON file that contains every list, item, task, plan entry, recipe, chore, chore week and member.
 
 **Security and operations**
 - A11. Response headers on the home page include CSP, nosniff, frame options and referrer policy as specified.
