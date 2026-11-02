@@ -66,6 +66,16 @@ Calendars are read-only, and the API fetches them from Google so the browser nev
 
 Changes in Google appear within 15 minutes. If the address ever leaks, reset it in Google Calendar and repeat step 2.
 
+### Adding events from Outlook
+
+Invites sent to `you+family@gmail.com` land on the Family Google calendar. Google will not accept outside invites at a shared calendar's own address, so `infra/family-invites.gs` reads them from Gmail and writes them to the calendar. It runs in Google Apps Script under the calendar owner's account and copies only the title, time, location and repeat rule.
+
+1. In Gmail, create a filter for mail sent to `you+family@gmail.com` that applies the label `Family`.
+2. At script.google.com create a project and replace `Code.gs` with `infra/family-invites.gs`. In Project Settings, show the `appsscript.json` manifest, then replace it with `infra/family-invites.appsscript.json`. That file limits the script to read-only Gmail and calendar events. Approving anything wider means something is wrong.
+3. Run `run` once and approve the permissions, then run `installTrigger` once to start the five-minute timer.
+
+The script is not deployed by CI. After changing it here, paste it into the project again.
+
 Client secrets expire, by default after a year: `az ad sp credential reset --id <appId>`, then repeat the `AZURE_CLIENT_SECRET` part of step 4.
 
 ## Draft status and known gaps
