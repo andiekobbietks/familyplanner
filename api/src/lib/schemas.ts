@@ -56,15 +56,9 @@ export const recipeIntakeSchema = z.object({ recipes: z.array(z.unknown()).max(1
 export const choreSchema = z.object({ name: title })
 export const choreAssignSchema = z.object({ memberId: id })
 
-/** Two decimal places is about a kilometre: enough for a forecast, and all that needs to leave the API (S32). */
-const coordinate = (limit: number) => z.number().min(-limit).max(limit).transform((n) => Math.round(n * 100) / 100)
-const weatherPlaceSchema = z.object({ label: title, lat: coordinate(90), lon: coordinate(180) })
-export const placeSearchSchema = z.string().trim().min(2, 'Enter at least two letters').max(100)
-
 export const settingsPatchSchema = z.object({
   breakfastEnabled: z.boolean().optional(),
   defaultListId: id.nullable().optional(),
-  weather: weatherPlaceSchema.nullable().optional(),
 })
 
 export const mePatchSchema = z.object({

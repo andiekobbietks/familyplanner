@@ -9,8 +9,8 @@ import { setPlanCell, copyWeek, getPlan } from '../src/handlers/plan'
 import { getPeople, patchMe } from '../src/handlers/me'
 import { createTask, deleteTask, patchTask } from '../src/handlers/tasks'
 import { addItem, deleteItem, getItems, patchItem } from '../src/handlers/lists'
-import { erase, exportAll, getMembers, invite, patchSettings, removeMember } from '../src/handlers/admin'
-import { getWeather, getWeatherPlaces } from '../src/handlers/weather'
+import { erase, exportAll, getMembers, invite, removeMember } from '../src/handlers/admin'
+import { getWeather } from '../src/handlers/weather'
 import { assignChore, copyChoreWeek, createChore, deleteChore, getChores, patchChore, unassignChore } from '../src/handlers/chores'
 import { createRecipe, deleteRecipe, getRecipes, intakeRecipes, patchRecipe } from '../src/handlers/recipes'
 import type { BaseDoc, Caller, Chore, ChoreWeek, Item, List, Member, Recipe } from '../src/lib/types'
@@ -168,7 +168,6 @@ describe('recipes', () => {
 })
 
 describe('weather', () => {
-  const place = { label: 'Reading, England', lat: 51.46, lon: -0.97 }
   const reply = {
     current: { temperature_2m: 10.2, weather_code: 3, is_day: 1 },
     daily: { time: ['2026-11-02', '2026-11-03'], weather_code: [51, 3], temperature_2m_max: [12.4, 12.9], temperature_2m_min: [8.5, 8.4], precipitation_probability_max: [98, null] },
@@ -183,72 +182,42 @@ describe('weather', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('shows nothing, and calls no one, until a town is chosen', async () => {
-    expect((await getWeather(ctx, {}, q(), undefined)).body).toEqual({ place: null, forecast: null })
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-  it('saves the town with coarse coordinates, and clearing it leaves other settings', async () => {
-    await patchSettings(ctx, {}, q(), { weather: { label: 'Reading', lat: 51.45625, lon: -0.97113 } })
-    expect((await patchSettings(ctx, {}, q(), { breakfastEnabled: true })).body).toMatchObject({ weather: { lat: 51.46, lon: -0.97 } })
-    const cleared = (await patchSettings(ctx, {}, q(), { weather: null })).body as { weather?: unknown; breakfastEnabled: boolean; defaultListId?: string }
-    expect(cleared.weather).toBeUndefined()
-    expect(cleared).toMatchObject({ breakfastEnabled: true, defaultListId: 'l-groceries' })
-  })
-  it('rejects impossible coordinates', async () => {
-    await expect(patchSettings(ctx, {}, q(), { weather: { label: 'Nowhere', lat: 91, lon: 0 } })).rejects.toBeInstanceOf(ValidationError)
-  })
-  it('S32: sends only the coarse coordinates, and only to the weather service', async () => {
+  it('S32: gives the forecast for Reading, sending only its coordinates to the weather service', async () => {
     fetchMock.mockImplementation(ok(reply))
-    await patchSettings(ctx, {}, q(), { weather: place })
     const { body } = await getWeather(ctx, {}, q(), undefined)
     expect(body).toMatchObject({
-      place: 'Reading, England',
+      place: 'Reading, UK',
       forecast: { current: { temperature: 10.2, code: 3, isDay: true }, days: [{ date: '2026-11-02', code: 51, high: 12.4, low: 8.5, rainChance: 98 }, { rainChance: null }] },
     })
     const url = new URL(String(fetchMock.mock.calls[0][0]))
     expect(url.hostname).toBe('api.open-meteo.com')
     expect(url.searchParams.get('latitude')).toBe('51.46')
-    expect(url.search).not.toContain('Reading')
+    expect(url.searchParams.get('longitude')).toBe('-0.97')
   })
   it('asks once in 30 minutes', async () => {
     fetchMock.mockImplementation(ok(reply))
-    await readForecast(place, 0)
-    await readForecast(place, 29 * 60_000)
+    await readForecast(0)
+    await readForecast(29 * 60_000)
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    await readForecast(place, 31 * 60_000)
+    await readForecast(31 * 60_000)
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
   it('keeps the last good forecast through an outage, without hammering the service, then gives up', async () => {
     fetchMock.mockImplementationOnce(ok(reply))
-    await readForecast(place, 1000)
+    await readForecast(1000)
     fetchMock.mockRejectedValue(new Error('down'))
     const later = 31 * 60_000
-    expect(await readForecast(place, later)).toBeDefined()
-    expect(await readForecast(place, later + 1000)).toBeDefined()
+    expect(await readForecast(later)).toBeDefined()
+    expect(await readForecast(later + 1000)).toBeDefined()
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(await readForecast(place, 7 * 60 * 60_000)).toBeUndefined()
+    expect(await readForecast(7 * 60 * 60_000)).toBeUndefined()
   })
   it('a failed or garbled reply leaves the dashboard working', async () => {
-    await patchSettings(ctx, {}, q(), { weather: place })
     fetchMock.mockImplementation(ok({ nonsense: true }))
-    expect((await getWeather(ctx, {}, q(), undefined)).body).toEqual({ place: 'Reading, England', forecast: null })
+    expect((await getWeather(ctx, {}, q(), undefined)).body).toEqual({ place: 'Reading, UK', forecast: null })
     clearWeatherCache()
     fetchMock.mockImplementation(async () => new Response('', { status: 500 }))
-    expect((await getWeather(ctx, {}, q(), undefined)).body).toEqual({ place: 'Reading, England', forecast: null })
-  })
-  it('names places in full so that two Readings can be told apart', async () => {
-    fetchMock.mockImplementation(ok({ results: [{ name: 'Reading', latitude: 51.45, longitude: -0.97, admin1: 'England', country: 'United Kingdom' }, { name: 'Reading', latitude: 40.33, longitude: -75.92, admin1: 'Pennsylvania', country: 'United States' }] }))
-    const { body } = await getWeatherPlaces(ctx, {}, q('q=Reading'), undefined)
-    expect((body as { label: string }[]).map((p) => p.label)).toEqual(['Reading, England, United Kingdom', 'Reading, Pennsylvania, United States'])
-  })
-  it('finding nowhere is an empty list, and an outage is an error', async () => {
-    fetchMock.mockImplementation(ok({ generationtime_ms: 1 }))
-    expect((await getWeatherPlaces(ctx, {}, q('q=Xyzzy'), undefined)).body).toEqual([])
-    fetchMock.mockRejectedValue(new Error('down'))
-    await expect(getWeatherPlaces(ctx, {}, q('q=Reading'), undefined)).rejects.toMatchObject({ status: 502 })
-  })
-  it('needs at least two letters to search', async () => {
-    await expect(getWeatherPlaces(ctx, {}, q('q=R'), undefined)).rejects.toBeInstanceOf(ValidationError)
+    expect((await getWeather(ctx, {}, q(), undefined)).body).toEqual({ place: 'Reading, UK', forecast: null })
   })
 })
 

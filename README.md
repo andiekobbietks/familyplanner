@@ -58,7 +58,7 @@ Titles the app already has are skipped, so the import can be run again after add
 
 ## Weather
 
-An admin chooses a town in Settings and the dashboard shows its forecast from [Open-Meteo](https://open-meteo.com/), which needs no key. The API fetches it, so the browser only ever talks to this site (S32).
+The dashboard shows the forecast for Reading from [Open-Meteo](https://open-meteo.com/), which needs no key. The API fetches it, so the browser only ever talks to this site (S32). The town is `HOME_TOWN` in `api/src/lib/weather.ts`.
 
 ## Daily recipe intake
 

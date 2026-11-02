@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { Chore, ChoreSchedule, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Task, Weather, WeatherPlace } from './types'
+import type { Chore, ChoreSchedule, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Task, Weather } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -80,7 +80,7 @@ export const mutations = {
   copyChoreWeek: (week: string) => api<{ copied: number }>('/chores/copy-week', { method: 'POST', json: { week } }),
 
   patchMe: (body: { displayName?: string; colour?: string }) => api<Me>('/me', { method: 'PATCH', json: body }),
-  patchSettings: (body: { breakfastEnabled?: boolean; defaultListId?: string | null; weather?: WeatherPlace | null }) => api<Settings>('/settings', { method: 'PATCH', json: body }),
+  patchSettings: (body: { breakfastEnabled?: boolean; defaultListId?: string | null }) => api<Settings>('/settings', { method: 'PATCH', json: body }),
   invite: (email: string, role: string) => api<{ member: MemberRecord; instructions: string }>('/members/invite', { method: 'POST', json: { email, role } }),
   removeMember: (id: string) => api<void>(`/members/${id}`, { method: 'DELETE' }),
   erase: () => api<void>('/admin/erase', { method: 'POST', json: { confirm: 'DELETE' } }),

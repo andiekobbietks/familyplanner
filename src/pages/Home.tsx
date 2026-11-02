@@ -138,6 +138,7 @@ function WeatherToday({ weather, today }: { weather: Weather; today: string }) {
         <span className="muted">
           High {degrees(day.high)}, low {degrees(day.low)}
           {day.rainChance !== null && `, ${day.rainChance}% rain`}
+          {` · ${weather.place}`}
         </span>
       )}
     </p>

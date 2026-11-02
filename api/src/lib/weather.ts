@@ -1,11 +1,11 @@
 import { z } from 'zod'
-import { HttpError } from './errors'
-import type { WeatherPlace } from './types'
 
 /**
  * The forecast for the family's town (section 5.2). The API fetches it, so the browser
- * never contacts an outside service (S10). Only the rounded coordinates leave the API (S32).
+ * never contacts an outside service (S10). Only the town's coordinates leave the API (S32).
  */
+export const HOME_TOWN = { label: 'Reading, UK', lat: 51.46, lon: -0.97 }
+
 export interface WeatherDay {
   date: string
   /** WMO weather code. */
@@ -38,21 +38,17 @@ const forecastSchema = z.object({
   }),
 })
 
-const placesSchema = z.object({
-  results: z.array(z.object({ name: z.string(), latitude: z.number(), longitude: z.number(), admin1: z.string().optional(), country: z.string().optional() })).optional(),
-})
-
 async function getJson(url: URL): Promise<unknown> {
   const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), redirect: 'error' })
   if (!res.ok) throw new Error(`Weather service answered ${res.status}`)
   return res.json()
 }
 
-async function fetchForecast({ lat, lon }: WeatherPlace): Promise<Forecast> {
+async function fetchForecast(): Promise<Forecast> {
   const url = new URL('https://api.open-meteo.com/v1/forecast')
   url.search = new URLSearchParams({
-    latitude: String(lat),
-    longitude: String(lon),
+    latitude: String(HOME_TOWN.lat),
+    longitude: String(HOME_TOWN.lon),
     timezone: TIME_ZONE,
     forecast_days: '7',
     current: 'temperature_2m,weather_code,is_day',
@@ -71,40 +67,25 @@ async function fetchForecast({ lat, lon }: WeatherPlace): Promise<Forecast> {
   }
 }
 
-interface Cached {
-  /** When the forecast was fetched. */
-  at: number
-  forecast?: Forecast
-  /** Not before this, after a failure, so that an outage isn't hit on every page load. */
-  retryAt: number
-}
-const cache = new Map<string, Cached>()
+/** When the forecast was fetched, and not to try again before retryAt after a failure, so that an outage isn't hit on every page load. */
+let cache: { at: number; forecast?: Forecast; retryAt: number } | undefined
 
-export const clearWeatherCache = () => cache.clear()
+export const clearWeatherCache = () => {
+  cache = undefined
+}
 
 /** Undefined when there is no forecast to show. The dashboard then carries on without it. */
-export async function readForecast(place: WeatherPlace, now = Date.now()): Promise<Forecast | undefined> {
-  const key = `${place.lat},${place.lon}`
-  const hit = cache.get(key)
+export async function readForecast(now = Date.now()): Promise<Forecast | undefined> {
+  const hit = cache
+  const usable = hit?.forecast && now - hit.at < STALE_MS ? hit.forecast : undefined
   if (hit?.forecast && now - hit.at < CACHE_MS) return hit.forecast
-  if (hit && now < hit.retryAt) return hit.forecast && now - hit.at < STALE_MS ? hit.forecast : undefined
+  if (hit && now < hit.retryAt) return usable
   try {
-    const forecast = await fetchForecast(place)
-    cache.set(key, { at: now, forecast, retryAt: 0 })
+    const forecast = await fetchForecast()
+    cache = { at: now, forecast, retryAt: 0 }
     return forecast
   } catch {
-    cache.set(key, { at: hit?.at ?? 0, forecast: hit?.forecast, retryAt: now + RETRY_MS })
-    return hit?.forecast && now - hit.at < STALE_MS ? hit.forecast : undefined
-  }
-}
-
-export async function searchPlaces(name: string): Promise<WeatherPlace[]> {
-  const url = new URL('https://geocoding-api.open-meteo.com/v1/search')
-  url.search = new URLSearchParams({ name, count: '6', language: 'en', format: 'json' }).toString()
-  try {
-    const { results = [] } = placesSchema.parse(await getJson(url))
-    return results.map((r) => ({ label: [r.name, r.admin1, r.country].filter(Boolean).join(', '), lat: r.latitude, lon: r.longitude }))
-  } catch {
-    throw new HttpError(502, 'WEATHER_UNAVAILABLE', 'Place search is unavailable')
+    cache = { at: hit?.at ?? 0, forecast: hit?.forecast, retryAt: now + RETRY_MS }
+    return usable
   }
 }

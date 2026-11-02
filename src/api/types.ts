@@ -105,11 +105,6 @@ export interface ChoreSchedule {
   assignments: ChoreAssignment[]
 }
 
-export interface WeatherPlace {
-  label: string
-  lat: number
-  lon: number
-}
 export interface WeatherDay {
   date: string
   code: number
@@ -117,14 +112,13 @@ export interface WeatherDay {
   low: number
   rainChance: number | null
 }
-/** Forecast is null when no town is set, or the service can't be reached. */
+/** Forecast is null when the service can't be reached. */
 export interface Weather {
-  place: string | null
+  place: string
   forecast: { current: { temperature: number; code: number; isDay: boolean }; days: WeatherDay[] } | null
 }
 
 export interface Settings {
   breakfastEnabled: boolean
   defaultListId?: string
-  weather?: WeatherPlace
 }
