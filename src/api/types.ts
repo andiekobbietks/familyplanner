@@ -37,10 +37,21 @@ export interface EventInput {
   notes?: string
   recurrence?: Recurrence | null
 }
+export interface ExternalCalendar {
+  label: string
+  colour: string
+}
 export interface Occurrence extends EventInput {
   id: string
   occurrenceDate: string
   recurring: boolean
+  /** Set on read-only events from a connected Google calendar. */
+  external?: ExternalCalendar
+}
+export interface ExternalEvents {
+  calendars: ExternalCalendar[]
+  events: Occurrence[]
+  unavailable: boolean
 }
 
 export interface List {

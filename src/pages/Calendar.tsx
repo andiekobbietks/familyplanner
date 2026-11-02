@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { mutations, useEvents, usePeople } from '../api/hooks'
+import { mutations, useCalendarEvents, usePeople } from '../api/hooks'
 import type { EventInput, Occurrence, Recurrence } from '../api/types'
 import { Icon } from '../components/Icons'
 import { Modal } from '../components/Modal'
@@ -9,6 +9,7 @@ import { useToast } from '../components/Toast'
 import { addDays, dateOfInstant, fmtDay, fmtMonth, fmtTime, fmtWeekday, instantFrom, localTz, mondayOf, parseISODate, relativeDay, timeOfInstant, todayISO, weekDays } from '../lib/dates'
 
 type View = 'month' | 'week' | 'agenda'
+const calendarFilter = (label: string) => `calendar:${label}`
 const isPhone = () => window.matchMedia('(max-width: 767px)').matches
 
 export function Calendar() {
@@ -17,6 +18,7 @@ export function Calendar() {
   const [anchor, setAnchor] = useState(today)
   const [filter, setFilter] = useState<string[]>([])
   const [editing, setEditing] = useState<{ occ?: Occurrence; date?: string } | null>(null)
+  const [viewing, setViewing] = useState<Occurrence | null>(null)
   const people = usePersonMap()
 
   const range = useMemo(() => {
@@ -30,8 +32,11 @@ export function Calendar() {
     return { from: gridStart, to: addDays(gridStart, 41) }
   }, [view, anchor])
 
-  const { data: events = [] } = useEvents(range.from, range.to)
-  const visible = filter.length ? events.filter((e) => e.assignees.some((a) => filter.includes(a))) : events
+  const { events, calendars, unavailable } = useCalendarEvents(range.from, range.to)
+  const visible = useMemo(
+    () => (filter.length ? events.filter((e) => (e.external ? filter.includes(calendarFilter(e.external.label)) : e.assignees.some((a) => filter.includes(a)))) : events),
+    [events, filter],
+  )
 
   const byDay = useMemo(() => {
     const m = new Map<string, Occurrence[]>()
@@ -46,7 +51,8 @@ export function Calendar() {
     return m
   }, [visible])
 
-  const colourOf = (e: Occurrence) => people.get(e.assignees[0])?.colour ?? 'var(--accent)'
+  const colourOf = (e: Occurrence) => e.external?.colour ?? people.get(e.assignees[0])?.colour ?? 'var(--accent)'
+  const pick = (occ: Occurrence) => (occ.external ? setViewing(occ) : setEditing({ occ }))
 
   const step = (n: number) => {
     if (view === 'month') {
@@ -98,13 +104,28 @@ export function Calendar() {
           Everyone
         </button>
         <PersonChips value={filter} onChange={setFilter} />
+        {calendars.map((c) => {
+          const id = calendarFilter(c.label)
+          const on = filter.includes(id)
+          return (
+            <button key={c.label} type="button" className={`chip ${on ? 'on' : ''}`} style={on ? { background: c.colour, color: '#fff' } : undefined} aria-pressed={on} onClick={() => setFilter(on ? filter.filter((x) => x !== id) : [...filter, id])}>
+              {c.label}
+            </button>
+          )
+        })}
       </div>
+      {unavailable && (
+        <p className="notice" role="status">
+          Google calendar unavailable
+        </p>
+      )}
 
-      {view === 'month' && <MonthGrid anchor={anchor} byDay={byDay} today={today} colourOf={colourOf} onPick={(occ) => setEditing({ occ })} onDay={openDay} />}
-      {view === 'week' && <WeekGrid monday={mondayOf(anchor)} byDay={byDay} today={today} colourOf={colourOf} onPick={(occ) => setEditing({ occ })} onDay={(d) => setEditing({ date: d })} />}
-      {view === 'agenda' && <Agenda byDay={byDay} colourOf={colourOf} onPick={(occ) => setEditing({ occ })} />}
+      {view === 'month' && <MonthGrid anchor={anchor} byDay={byDay} today={today} colourOf={colourOf} onPick={pick} onDay={openDay} />}
+      {view === 'week' && <WeekGrid monday={mondayOf(anchor)} byDay={byDay} today={today} colourOf={colourOf} onPick={pick} onDay={(d) => setEditing({ date: d })} />}
+      {view === 'agenda' && <Agenda byDay={byDay} colourOf={colourOf} onPick={pick} />}
 
       {editing && <EventEditor occ={editing.occ} date={editing.date} onClose={() => setEditing(null)} />}
+      {viewing && <ExternalEventSheet occ={viewing} onClose={() => setViewing(null)} />}
     </>
   )
 }
@@ -121,13 +142,13 @@ function EventChip({ e, colour, onPick }: { e: Occurrence; colour: string; onPic
   return (
     <button
       type="button"
-      className={`evt ${e.allDay ? '' : 'timed'}`}
+      className={`evt ${e.allDay ? '' : 'timed'} ${e.external ? 'external' : ''}`}
       style={{ '--c': colour } as CSSProperties}
       onClick={(ev) => {
         ev.stopPropagation()
         onPick(e)
       }}
-      title={e.title}
+      title={e.external ? `${e.title} (${e.external.label})` : e.title}
     >
       {!e.allDay && <strong>{fmtTime(e.start)} </strong>}
       {e.title}
@@ -191,6 +212,7 @@ function Agenda({ byDay, colourOf, onPick }: Pick<GridProps, 'byDay' | 'colourOf
                 {e.title}
                 {e.location && <span className="muted small"> · {e.location}</span>}
                 {e.recurring && <span className="muted small"> ↻</span>}
+                {e.external && <span className="sub">{e.external.label}</span>}
               </span>
               <Avatars ids={e.assignees} />
             </div>
@@ -198,6 +220,24 @@ function Agenda({ byDay, colourOf, onPick }: Pick<GridProps, 'byDay' | 'colourOf
         </div>
       ))}
     </div>
+  )
+}
+
+/** Google events can only be changed in Google, so this has no edit or delete controls (section 5.3.1). */
+function ExternalEventSheet({ occ, onClose }: { occ: Occurrence; onClose: () => void }) {
+  const when = occ.allDay
+    ? occ.start === occ.end
+      ? `${fmtDay(occ.start)}, all day`
+      : `${fmtDay(occ.start)} to ${fmtDay(occ.end)}`
+    : `${fmtDay(dateOfInstant(occ.start))}, ${fmtTime(occ.start)}–${fmtTime(occ.end)}`
+  return (
+    <Modal title={occ.title} onClose={onClose}>
+      <p>
+        {when}
+        {occ.location && <span className="sub">{occ.location}</span>}
+      </p>
+      <p className="muted small">From the {occ.external!.label} Google calendar. Change it in Google Calendar.</p>
+    </Modal>
   )
 }
 

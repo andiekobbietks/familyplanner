@@ -14,6 +14,7 @@ route('me-patch', 'PATCH', 'me', ANY, me.patchMe)
 route('people-get', 'GET', 'people', ANY, me.getPeople)
 
 route('events-list', 'GET', 'events', ANY, events.listEvents)
+route('external-events-list', 'GET', 'external-events', ANY, events.listExternalEvents)
 route('events-create', 'POST', 'events', ANY, events.createEvent)
 route('events-update', 'PUT', 'events/{id}', ANY, events.updateEvent)
 route('events-delete', 'DELETE', 'events/{id}', ANY, events.deleteEvent)

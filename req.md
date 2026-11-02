@@ -100,7 +100,7 @@ At minimum, the planner displays one or more existing Google calendars alongside
 - Google events appear in the month, week and agenda views and on the dashboard. They show title, time, all-day flag and location, are visibly marked with the calendar's label and colour (never colour alone), and have no edit or delete controls.
 - Recurring events, exceptions and all-day events in the feed display on the correct dates, including across the clock changes (Section 8).
 - Filter by calendar. "Everyone" includes connected calendars.
-- Connected calendars are configured by application setting as a list of label and feed address (S19), not through the UI. Every member sees every connected calendar.
+- Connected calendars are configured by the `GOOGLE_CALENDARS` application setting, a JSON list of `{ "label", "url" }` (S19), not through the UI. Every member sees every connected calendar.
 - Feed contents are cached in memory for up to 15 minutes and are not written to the database, so a Google event's changes appear within 15 minutes and the export (A10) is unaffected.
 - If a feed cannot be fetched or parsed, the planner's own events still display, and the calendar shows "Google calendar unavailable" rather than an error. The last good cached copy may be shown instead.
 
@@ -298,7 +298,7 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 |---|---|---|
 | GET | `/me` | Current user's member record and role |
 | GET | `/events?from=&to=` | Events overlapping a date range, recurrence expanded server-side |
-| GET | `/external-events?from=&to=` | Read-only events from connected Google calendars, recurrence expanded server-side |
+| GET | `/external-events?from=&to=` | Read-only events from connected Google calendars, recurrence expanded server-side. Returns `{ calendars, events, unavailable }` |
 | POST | `/events` | Create event |
 | PUT | `/events/{id}` | Update event (query `scope=this|future` for recurring) |
 | DELETE | `/events/{id}` | Delete event or one occurrence (`?date=`) |

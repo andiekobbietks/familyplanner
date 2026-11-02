@@ -55,11 +55,21 @@ Static Web Apps is not offered in UK South, so the app and its functions run in 
 6. Push to `main`. The workflow runs the checks and deploys.
 7. Sign in on the site, then add everyone else on the Members page. A new deployment has no members, so the first admin's member record has to be created by hand in Cosmos DB Data Explorer: `type` member, `familyId` home, their email, `role` admin, `active` true.
 
+### Connecting Google calendars
+
+Calendars are read-only, and the API fetches them from Google so the browser never sees the address (requirements section 5.3.1).
+
+1. In Google Calendar on a computer: Settings, pick the calendar on the left, then copy **Secret address in iCal format** from "Integrate calendar". Treat it as a password.
+2. Run `bash infra/set-google-calendar.sh "Family"` in a terminal signed in with `az login`. The label appears on the calendar. It asks for the address without showing it, so it stays out of your shell history, and only this one setting changes.
+
+   For several calendars, set `GOOGLE_CALENDARS` by hand to a longer list: `[{"label":"A","url":"..."},{"label":"B","url":"..."}]`.
+
+Changes in Google appear within 15 minutes. If the address ever leaks, reset it in Google Calendar and repeat step 2.
+
 Client secrets expire, by default after a year: `az ad sp credential reset --id <appId>`, then repeat the `AZURE_CLIENT_SECRET` part of step 4.
 
 ## Draft status and known gaps
 
-- Google calendar display (requirements section 5.3.1) is specified but not built.
 - PNG icons (192 and 512) for the manifest are not generated yet; the SVG works in Chrome but iOS wants PNG.
 - No ESLint config yet; CI runs type-check and tests.
 - Playwright smoke suite (section 11) not written.

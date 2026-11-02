@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useEvents, useLists, useMe, usePlan, useSettings, useTasks } from '../api/hooks'
+import { useCalendarEvents, useLists, useMe, usePlan, useSettings, useTasks } from '../api/hooks'
 import type { Occurrence, PlanEntry, Slot, Task } from '../api/types'
 import { Icon } from '../components/Icons'
 import { MealInput } from '../components/MealInput'
@@ -16,16 +16,13 @@ function greeting(hour: number) {
   return hour < 18 ? 'Good afternoon' : 'Good evening'
 }
 
-/** All-day events first, then by start time. */
-const byStart = (a: Occurrence, b: Occurrence) => Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start)
-
 export function Home() {
   const today = todayISO()
   const tomorrow = addDays(today, 1)
   const lastDay = addDays(today, 6)
   const now = new Date()
   const { data: me } = useMe()
-  const { data: events = [] } = useEvents(today, lastDay)
+  const { events, unavailable } = useCalendarEvents(today, lastDay)
   const { data: lists = [] } = useLists()
   const { data: tasks = [] } = useTasks('mine')
   const { data: settings } = useSettings()
@@ -49,7 +46,6 @@ export function Home() {
         m.get(d)!.push(e)
       }
     }
-    for (const list of m.values()) list.sort(byStart)
     return m
   }, [events, today, lastDay])
 
@@ -77,6 +73,11 @@ export function Home() {
           <h2 id="today-h" className="section-title">
             Today
           </h2>
+          {unavailable && (
+            <p className="notice" role="status">
+              Google calendar unavailable
+            </p>
+          )}
           <div className="card today-card">
             <DayDetail {...dayProps(today)} />
           </div>
@@ -139,10 +140,10 @@ function DayDetail({ date, events, plan, slots, tasks }: DayProps) {
             <li key={`${e.id}-${e.occurrenceDate}`} className={!e.allDay && Date.parse(e.end) < now ? 'gone' : ''}>
               <Link to="/calendar">
                 <span className="time">{e.allDay ? 'All day' : fmtTime(e.start)}</span>
-                <span className="colourbar" style={{ background: people.get(e.assignees[0])?.colour ?? 'var(--accent)' }} />
+                <span className="colourbar" style={{ background: e.external?.colour ?? people.get(e.assignees[0])?.colour ?? 'var(--accent)' }} />
                 <span className="grow">
                   {e.title}
-                  {e.location && <span className="sub">{e.location}</span>}
+                  {(e.location || e.external) && <span className="sub">{[e.location, e.external?.label].filter(Boolean).join(' · ')}</span>}
                 </span>
                 <Avatars ids={e.assignees} />
               </Link>

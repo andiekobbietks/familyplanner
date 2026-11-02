@@ -1,6 +1,7 @@
+import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { EventInput, Item, List, Me, MemberRecord, Occurrence, Person, PlanEntry, Settings, Task } from './types'
+import type { EventInput, ExternalEvents, Item, List, Me, MemberRecord, Occurrence, Person, PlanEntry, Settings, Task } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -22,6 +23,22 @@ export const useTasks = (view: 'mine' | 'all' | 'done') =>
 
 export const useEvents = (from: string, to: string) =>
   useQuery({ queryKey: ['events', from, to], queryFn: () => api<Occurrence[]>(`/events?from=${from}&to=${to}`) })
+
+/** Planner events and connected Google calendars together. A Google failure leaves the planner's own events showing (section 5.3.1). */
+export function useCalendarEvents(from: string, to: string) {
+  const own = useEvents(from, to)
+  const google = useQuery({
+    queryKey: ['external-events', from, to],
+    queryFn: () => api<ExternalEvents>(`/external-events?from=${from}&to=${to}`),
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+  const events = useMemo(
+    () => [...(own.data ?? []), ...(google.data?.events ?? [])].sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start)),
+    [own.data, google.data],
+  )
+  return { events, calendars: google.data?.calendars ?? [], unavailable: google.isError || !!google.data?.unavailable }
+}
 
 export const usePlan = (monday: string) => useQuery({ queryKey: ['plan', monday], queryFn: () => api<PlanEntry[]>(`/plan?week=${monday}`) })
 
