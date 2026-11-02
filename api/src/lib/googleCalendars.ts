@@ -3,7 +3,7 @@ import { addDays, dateOf } from './dates'
 import { z } from 'zod'
 
 /**
- * Read-only Google calendars (section 5.3.1). Each is read from its secret iCal
+ * Read-only Google calendars (section 5.3). Each is read from its secret iCal
  * address on the server. That address is a secret (S30): it must never reach a
  * response or a log line, so failures here are swallowed rather than reported.
  */

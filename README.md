@@ -9,11 +9,15 @@ src/                  React 18 + TypeScript + Vite client (PWA)
 api/                  Azure Functions v4 (Node 22, TypeScript, Zod)
   src/lib/caller.ts   the single caller-resolution function (section 6)
   src/lib/store.ts    Store interface; MemoryStore (local) and CosmosStore (Azure)
+  src/lib/googleCalendars.ts   reads, caches and expands the Google calendar feeds
   src/handlers/       one file per feature, pure (ctx, params, query, body) => result
   src/index.ts        every route from section 10, registered in one place
 infra/main.bicep      SWA + Cosmos DB free tier + role assignment + budget alert (app settings are set by CLI)
+infra/set-google-calendar.sh     connects a Google calendar to the live site
+infra/family-invites.gs          Apps Script that puts emailed invites on the Family calendar
+infra/family-invites.appsscript.json   its manifest, which pins its permissions
 staticwebapp.config.json   route roles, provider lockdown, security headers (Appendix A)
-.github/workflows/    lint, type-check, tests, npm audit, secret scan, deploy
+.github/workflows/    type-check, tests, npm audit, secret scan, deploy
 ```
 
 ## Run locally
@@ -29,6 +33,8 @@ Open http://localhost:5173. You start logged out. The login page offers the dev 
 
 Locally the API uses an in-memory store persisted to `api/.data/db.json`, seeded with a sample household. Delete that file to reseed. Production Cosmos DB only accepts connections from Azure datacentres (S20), so local development stays on this store.
 
+The sample household has no events, because events only come from Google. To see some locally, add `GOOGLE_CALENDARS` to `Values` in `api/local.settings.json` in the format shown under "Connecting Google calendars". Use a public calendar's address there, because that file is committed and secret addresses must not be.
+
 How the dev auth works: Vite's proxy injects the same `x-ms-client-principal` header that Static Web Apps injects in production, and a tiny middleware serves `/.auth/me`, `/.auth/login/aad` and `/.auth/logout`. The API has no development-only code paths.
 
 ## Tests
@@ -38,7 +44,7 @@ npm test            # client unit tests, then api unit tests
 npm run typecheck
 ```
 
-API tests cover the acceptance criteria that can be checked without a browser: A1, A2, A5, A9c, A9d, A12, A13, plus clock changes, recurring events, and moved and deleted occurrences in Google feeds.
+API tests cover the acceptance criteria that can be checked without a browser: A1, A2, A5, A9c, A9d, A12, A13, plus clock changes, recurring events, and moved and deleted occurrences in Google feeds. They also run the parts of `infra/family-invites.gs` that need no Google services, against simulated Outlook invites.
 
 ## Deploy
 
@@ -57,22 +63,24 @@ Static Web Apps is not offered in UK South, so the app and its functions run in 
 
 ### Connecting Google calendars
 
-Calendars are read-only, and the API fetches them from Google so the browser never sees the address (requirements section 5.3.1).
+Calendars are read-only, and the API fetches them from Google so the browser never sees the address (requirements section 5.3). Events are added and changed in Google, not in the app.
 
 1. In Google Calendar on a computer: Settings, pick the calendar on the left, then copy **Secret address in iCal format** from "Integrate calendar". Treat it as a password.
 2. Run `bash infra/set-google-calendar.sh "Family"` in a terminal signed in with `az login`. The label appears on the calendar. It asks for the address without showing it, so it stays out of your shell history, and only this one setting changes.
 
    For several calendars, set `GOOGLE_CALENDARS` by hand to a longer list: `[{"label":"A","url":"..."},{"label":"B","url":"..."}]`.
 
-Changes in Google appear within 15 minutes. If the address ever leaks, reset it in Google Calendar and repeat step 2.
+Changes in Google appear in the app within 15 minutes. If the address ever leaks, reset it in Google Calendar and repeat step 2.
 
 ### Adding events from Outlook
 
-Invites sent to `you+family@gmail.com` land on the Family Google calendar. Google will not accept outside invites at a shared calendar's own address, so `infra/family-invites.gs` reads them from Gmail and writes them to the calendar. It runs in Google Apps Script under the calendar owner's account and copies only the title, time, location and repeat rule.
+Invites sent to `you+family@gmail.com` from any calendar system land on the Family Google calendar, and moving or cancelling the meeting updates it. Google will not accept outside invites at a shared calendar's own address, so `infra/family-invites.gs` reads them from Gmail and writes them to the calendar. It runs in Google Apps Script under the calendar owner's account and copies only the title, time, location and repeat rule.
 
 1. In Gmail, create a filter for mail sent to `you+family@gmail.com` that applies the label `Family`.
 2. At script.google.com create a project and replace `Code.gs` with `infra/family-invites.gs`. In Project Settings, show the `appsscript.json` manifest, then replace it with `infra/family-invites.appsscript.json`. That file limits the script to read-only Gmail and calendar events. Approving anything wider means something is wrong.
-3. Run `run` once and approve the permissions, then run `installTrigger` once to start the five-minute timer.
+3. Run `run` once and approve the permissions. Google warns that the app is unverified because the script is your own: choose Advanced, then continue. The consent screen should list viewing email, viewing and editing calendar events, and running when you are not present. Then run `installTrigger` once to start the five-minute timer.
+
+An invite reaches Google Calendar within five minutes and the app up to 15 minutes after that. Moves and cancellations only travel if Outlook sends the update, so choose **Send update** or **Send cancellation** when asked. A failed invite is retried on every run for three days, and errors appear under Executions in the script project.
 
 The script is not deployed by CI. After changing it here, paste it into the project again.
 
@@ -83,3 +91,4 @@ Client secrets expire, by default after a year: `az ad sp credential reset --id 
 - PNG icons (192 and 512) for the manifest are not generated yet; the SVG works in Chrome but iOS wants PNG.
 - No ESLint config yet; CI runs type-check and tests.
 - Playwright smoke suite (section 11) not written.
+- Events created in the app before Google became the only source are no longer shown. They stay in the database and the export.
