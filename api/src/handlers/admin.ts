@@ -2,7 +2,7 @@ import { badRequest, notFound } from '../lib/errors'
 import type { Handler } from '../lib/http'
 import { eraseSchema, inviteSchema, parse, settingsPatchSchema } from '../lib/schemas'
 import type { List, Member, Settings } from '../lib/types'
-import { PALETTE } from '../lib/caller'
+import { memberColour, PALETTE } from '../lib/caller'
 import { stamp, touch } from '../lib/util'
 
 export const getSettings: Handler = async ({ store, caller }) => {
@@ -25,7 +25,7 @@ export const patchSettings: Handler = async ({ store, caller }, _p, _q, body) =>
 export const getMembers: Handler = async ({ store, caller }) => {
   const members = await store.byType<Member>(caller.familyId, 'member')
   members.sort((a, b) => a.displayName.localeCompare(b.displayName))
-  return { body: members.map(({ providerUserId: _pid, ...m }) => m) }
+  return { body: members.map(({ providerUserId: _pid, ...m }) => ({ ...m, colour: memberColour(m.colour) })) }
 }
 
 /** The member document is the invitation (S3). It links to the account on first sign-in with this email. */

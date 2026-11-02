@@ -11,7 +11,12 @@ interface ClientPrincipal {
   userRoles: string[]
 }
 
-export const PALETTE = ['#2563eb', '#db2777', '#16a34a', '#ea580c', '#7c3aed', '#0891b2', '#ca8a04', '#dc2626']
+/** No blue and pink, which read as boy and girl. White text on each of these meets 4.5:1 (section 8). */
+export const PALETTE = ['#0f766e', '#b45309', '#4d7c0f', '#0e7490', '#a16207', '#7c3aed', '#57534e', '#b91c1c']
+
+/** The two old defaults, as saved on existing members. Swapped when read, since a member's own choice is otherwise left alone. */
+const RETIRED: Record<string, string> = { '#2563eb': PALETTE[0], '#db2777': PALETTE[1] }
+export const memberColour = (colour: string) => RETIRED[colour.toLowerCase()] ?? colour
 
 export function familyId(): string {
   return process.env.FAMILY_ID ?? 'home'

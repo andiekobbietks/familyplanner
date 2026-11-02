@@ -7,7 +7,7 @@ import { useToast } from '../components/Toast'
 export function Profile() {
   const { data: me } = useMe()
   const [name, setName] = useState('')
-  const [colour, setColour] = useState('#2563eb')
+  const [colour, setColour] = useState('#0f766e')
   const qc = useQueryClient()
   const toast = useToast()
   useEffect(() => {

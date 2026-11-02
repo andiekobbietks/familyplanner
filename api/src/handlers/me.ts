@@ -1,9 +1,10 @@
+import { memberColour } from '../lib/caller'
 import type { Handler } from '../lib/http'
 import { mePatchSchema, parse } from '../lib/schemas'
 import type { Member } from '../lib/types'
 import { touch } from '../lib/util'
 
-const publicMember = (m: Member) => ({ id: m.id, displayName: m.displayName, colour: m.colour, role: m.role })
+const publicMember = (m: Member) => ({ id: m.id, displayName: m.displayName, colour: memberColour(m.colour), role: m.role })
 
 export const getMe: Handler = async ({ store, caller }) => {
   const m = (await store.get<Member>(caller.familyId, caller.memberId, 'member'))!

@@ -1,15 +1,15 @@
 import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { getCaller, integrationCaller } from '../src/lib/caller'
+import { getCaller, integrationCaller, PALETTE } from '../src/lib/caller'
 import { HttpError } from '../src/lib/errors'
 import { run, type Ctx } from '../src/lib/http'
 import { MemoryStore } from '../src/lib/memoryStore'
 import { seed } from '../src/lib/seed'
 import { setPlanCell, copyWeek, getPlan } from '../src/handlers/plan'
-import { patchMe } from '../src/handlers/me'
+import { getPeople, patchMe } from '../src/handlers/me'
 import { createTask, deleteTask, patchTask } from '../src/handlers/tasks'
 import { addItem, deleteItem, getItems, patchItem } from '../src/handlers/lists'
-import { erase, exportAll, invite, removeMember } from '../src/handlers/admin'
+import { erase, exportAll, getMembers, invite, removeMember } from '../src/handlers/admin'
 import { assignChore, copyChoreWeek, createChore, deleteChore, getChores, patchChore, unassignChore } from '../src/handlers/chores'
 import { createRecipe, deleteRecipe, getRecipes, intakeRecipes, patchRecipe } from '../src/handlers/recipes'
 import type { BaseDoc, Caller, Chore, ChoreWeek, Item, List, Member, Recipe } from '../src/lib/types'
@@ -162,6 +162,36 @@ describe('recipes', () => {
     expect(await store.get('home', r.id, 'recipe')).toBeUndefined()
     await expect(deleteRecipe(ctx, { id: 'm-tim' }, q(), undefined)).rejects.toMatchObject({ status: 404 })
     await expect(patchRecipe(ctx, { id: 'm-tim' }, q(), { title: 'x' })).rejects.toMatchObject({ status: 404 })
+  })
+})
+
+describe('member colours', () => {
+  const colourOf = async (id: string) => {
+    const people = (await getPeople(ctx, {}, q(), undefined)).body as { id: string; colour: string }[]
+    return people.find((p) => p.id === id)?.colour
+  }
+  const setColour = async (id: string, colour: string) => store.upsert({ ...(await store.get<Member>('home', id, 'member'))!, colour })
+
+  it('shows members saved with the old blue and pink in the new defaults', async () => {
+    await setColour('m-tim', '#2563eb')
+    await setColour('m-jo', '#DB2777')
+    expect(await colourOf('m-tim')).toBe('#0f766e')
+    expect(await colourOf('m-jo')).toBe('#b45309')
+    const members = (await getMembers(ctx, {}, q(), undefined)).body as Member[]
+    expect(members.find((m) => m.id === 'm-jo')?.colour).toBe('#b45309')
+  })
+  it('leaves any other colour alone', async () => {
+    await setColour('m-tim', '#123456')
+    expect(await colourOf('m-tim')).toBe('#123456')
+  })
+  it('new members get no blue or pink, and white text is readable on every default', () => {
+    const luminance = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    expect(PALETTE).not.toContain('#2563eb')
+    expect(PALETTE).not.toContain('#db2777')
+    for (const c of PALETTE) expect(1.05 / (luminance(c) + 0.05)).toBeGreaterThanOrEqual(4.5)
   })
 })
 
