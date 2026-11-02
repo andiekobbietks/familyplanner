@@ -1,7 +1,8 @@
+import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { getCaller } from '../src/lib/caller'
+import { getCaller, integrationCaller } from '../src/lib/caller'
 import { HttpError } from '../src/lib/errors'
-import type { Ctx } from '../src/lib/http'
+import { run, type Ctx } from '../src/lib/http'
 import { MemoryStore } from '../src/lib/memoryStore'
 import { seed } from '../src/lib/seed'
 import { setPlanCell, copyWeek, getPlan } from '../src/handlers/plan'
@@ -10,9 +11,10 @@ import { createTask, deleteTask, patchTask } from '../src/handlers/tasks'
 import { addItem, deleteItem, getItems, patchItem } from '../src/handlers/lists'
 import { erase, exportAll, invite, removeMember } from '../src/handlers/admin'
 import { assignChore, copyChoreWeek, createChore, deleteChore, getChores, patchChore, unassignChore } from '../src/handlers/chores'
-import { createRecipe, deleteRecipe, getRecipes, patchRecipe } from '../src/handlers/recipes'
+import { createRecipe, deleteRecipe, getRecipes, intakeRecipes, patchRecipe } from '../src/handlers/recipes'
 import type { BaseDoc, Caller, Chore, ChoreWeek, Item, List, Member, Recipe } from '../src/lib/types'
 import { ValidationError } from '../src/lib/schemas'
+import { setStore } from '../src/lib/store'
 import { stamp } from '../src/lib/util'
 
 process.env.FAMILY_ID = 'home'
@@ -160,6 +162,74 @@ describe('recipes', () => {
     expect(await store.get('home', r.id, 'recipe')).toBeUndefined()
     await expect(deleteRecipe(ctx, { id: 'm-tim' }, q(), undefined)).rejects.toMatchObject({ status: 404 })
     await expect(patchRecipe(ctx, { id: 'm-tim' }, q(), { title: 'x' })).rejects.toMatchObject({ status: 404 })
+  })
+})
+
+describe('recipe intake', () => {
+  const token = 'a'.repeat(64)
+  const service = () => ({ ...ctx, caller: integrationCaller(token) })
+  const send = async (recipes: unknown[]) => (await intakeRecipes(service(), {}, q(), { recipes })).body as { added: string[]; skipped: string[]; failed: { title: string; error: string }[] }
+  const post = (headers: Record<string, string>, body: unknown = { recipes: [{ title: 'Paella' }] }) =>
+    run({ method: 'POST', headers: new Headers(headers), json: async () => body } as never, { log() {}, warn() {}, error() {} } as never, 'integration/recipes', { integration: true }, intakeRecipes)
+
+  beforeEach(() => {
+    process.env.INTEGRATION_TOKEN = token
+    setStore(store)
+  })
+
+  it('adds new recipes, attributed to the service', async () => {
+    expect(await send([{ title: 'Paella', tags: ['rice'] }])).toEqual({ added: ['Paella'], skipped: [], failed: [] })
+    const saved = (await store.byType<Recipe>('home', 'recipe')).find((r) => r.title === 'Paella')
+    expect(saved).toMatchObject({ createdBy: 'integration', tags: ['rice'], method: '' })
+  })
+  it('skips a title the app has, leaving the edited one alone', async () => {
+    await createRecipe(ctx, {}, q(), { title: 'Paella', notes: 'Edited in the app' })
+    expect((await send([{ title: ' PAELLA ', notes: 'From the file' }, { title: 'paella' }])).skipped).toHaveLength(2)
+    const paellas = (await store.byType<Recipe>('home', 'recipe')).filter((r) => r.title.toLowerCase() === 'paella')
+    expect(paellas).toHaveLength(1)
+    expect(paellas[0].notes).toBe('Edited in the app')
+  })
+  it('adds a title repeated in one batch only once', async () => {
+    expect(await send([{ title: 'Paella' }, { title: 'paella' }])).toMatchObject({ added: ['Paella'], skipped: ['paella'] })
+  })
+  it('one bad recipe does not hold back the rest', async () => {
+    const r = await send([{ title: 'Long', method: 'x'.repeat(10001) }, null, { title: 'Paella' }])
+    expect(r.added).toEqual(['Paella'])
+    expect(r.failed.map((f) => f.title)).toEqual(['Long', 'Untitled'])
+    expect(r.failed[0].error).toContain('method')
+  })
+  it('caps a batch at 100', async () => {
+    await expect(send(Array.from({ length: 101 }, (_, i) => ({ title: `R${i}` })))).rejects.toBeInstanceOf(ValidationError)
+  })
+  it('the right token gets through the real request path', async () => {
+    expect(await post({ 'x-integration-token': token })).toMatchObject({ status: 200, jsonBody: { added: ['Paella'] } })
+  })
+  it('refuses a wrong or missing token before reading the body or writing anything', async () => {
+    const before = (await store.byType('home', 'recipe')).length
+    for (const headers of [{}, { 'x-integration-token': 'wrong' }, { 'x-integration-token': token + 'x' }]) {
+      expect(await post(headers)).toMatchObject({ status: 403, jsonBody: { code: 'BAD_TOKEN' } })
+    }
+    expect(await store.byType('home', 'recipe')).toHaveLength(before)
+  })
+  it('a signed-in family member cannot use the route without the token', async () => {
+    expect(await post({ 'x-ms-client-principal': principal('dev-tim', 'tim@example.com', ['admin']) })).toMatchObject({ status: 403 })
+  })
+  it('refuses everything when no token, or a short one, is configured', async () => {
+    delete process.env.INTEGRATION_TOKEN
+    expect(() => integrationCaller('')).toThrow()
+    expect(() => integrationCaller('undefined')).toThrow()
+    process.env.INTEGRATION_TOKEN = 'short'
+    expect(() => integrationCaller('short')).toThrow()
+  })
+  it('the token grants no route but this one', () => {
+    const src = readFileSync(`${__dirname}/../src/index.ts`, 'utf8')
+    expect(src.match(/integration: true/g)).toHaveLength(1)
+  })
+  it('S5: only the integration path is open at the edge, and its rule comes first', () => {
+    const { routes } = JSON.parse(readFileSync(`${__dirname}/../../staticwebapp.config.json`, 'utf8')) as { routes: { route: string; allowedRoles?: string[] }[] }
+    const open = routes.filter((r) => r.route.startsWith('/api') && r.allowedRoles?.includes('anonymous')).map((r) => r.route)
+    expect(open).toEqual(['/api/integration/*'])
+    expect(routes.findIndex((r) => r.route === '/api/integration/*')).toBeLessThan(routes.findIndex((r) => r.route === '/api/*'))
   })
 })
 

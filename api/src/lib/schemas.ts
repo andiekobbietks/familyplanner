@@ -50,6 +50,9 @@ export const recipeSchema = z.object({
 })
 export const recipePatchSchema = recipeSchema.partial()
 
+/** Each recipe is checked on its own, so that one bad one can't hold back the rest. */
+export const recipeIntakeSchema = z.object({ recipes: z.array(z.unknown()).max(100) })
+
 export const choreSchema = z.object({ name: title })
 export const choreAssignSchema = z.object({ memberId: id })
 

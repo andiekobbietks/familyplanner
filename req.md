@@ -153,6 +153,7 @@ The family's recipes, kept in the app. They have their own item in the top navig
 - **Put on the plan.** Choose a day and meal and the title is written to that plan cell. If the cell is filled, the sheet says what will be replaced.
 - Any member can add, edit and delete recipes.
 - **Import.** An admin chooses an org file in Settings: one recipe per top-level heading, with `Ingredients`, `Method`, `Notes` and `Variations` sections, lists or `| Amount | Ingredient |` tables, and a property drawer. Any other section is treated as a sub-recipe. The file is parsed in the browser and the recipes are created through the normal API, because the production database cannot be reached from outside Azure (S20). The app is the home of a recipe once imported. A title the app already has is skipped, so an import can be repeated after the file has grown and never overwrites an edit.
+- **Daily intake.** Recipes texted to Hermes on the home server land in the org file. Once a day Hermes runs `infra/recipe-intake.sh`, which parses the file with the same parser and sends titles it has not sent before to `POST /api/integration/recipes` (S31). It keeps its own record of what it has sent, so a recipe deleted or renamed in the app does not come back. It runs without the AI model, messages only when something was added or refused, and is silent otherwise. A failed run sends nothing to the record, so it is retried the next day.
 
 ### 5.9 Chores
 
@@ -264,6 +265,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 - S28. Data about children is entered by their parents and only visible to invited family. There is no public or shareable surface in v1.
 - S29. An admin can delete all data for the family in one action, leaving only that admin's own member record so they can still sign in. This satisfies the family's own right to erasure and makes decommissioning clean.
 - S30. A Google calendar feed address is a secret: anyone holding it can read that calendar. It lives only in application settings (S19), is never sent to the browser and is never logged (S23). Only `https://calendar.google.com/` addresses are fetched, so a bad setting cannot point the API elsewhere. If an address leaks, reset it in Google Calendar and update the setting.
+- S31. A service on the home server calls the API through `/api/integration/*` with a long random token in the `x-integration-token` header. That path is the only API path open at the SWA edge, so the token is its only protection. It is at least 32 characters, lives in application settings and in a file readable only by its owner on the home server, and is compared in constant time. With no token configured, every request is refused. The token can add recipes and nothing else: it reads no family data, and a signed-in session does not stand in for it.
 
 ---
 
@@ -335,6 +337,7 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | POST | `/recipes` | Create recipe |
 | PATCH | `/recipes/{id}` | Update recipe |
 | DELETE | `/recipes/{id}` | Delete recipe |
+| POST | `/integration/recipes` | Add recipes whose titles are new, for Hermes. Token, not a login (S31). Returns `{ added, skipped, failed }` |
 | GET | `/chores?week=YYYY-MM-DD` | Chores and that week's assignments |
 | POST | `/chores` | Create chore |
 | PATCH | `/chores/{id}` | Rename chore |
@@ -391,6 +394,7 @@ Each of these should be demonstrable before v1 is called done.
 - A9b. Wednesday's lunch and dinner appear on the dashboard on Wednesday and not on Tuesday. At 16:00 on Tuesday the dashboard also shows Wednesday's lunch. On a phone the week view shows seven days, each with both slots, without horizontal scrolling.
 - A9c. "Copy last week" onto a week that already has Friday filled leaves Friday untouched and fills the other six days.
 - A9e. Importing the family's org file creates every recipe, and importing it again creates none. A recipe with subheadings, one with a sub-recipe and one with only a link all display correctly.
+- A9h. `POST /api/integration/recipes` with no token or a wrong one returns 403 and writes nothing. With the token, a new title is added and an existing one left unchanged. A recipe deleted in the app is not added again by the next daily intake.
 - A9f. From a recipe, unticking one ingredient and adding the rest puts exactly those on the chosen list. Putting the recipe on the plan makes that cell link back to it.
 - A9g. A chore assigned this week appears on the dashboard with that person and is unassigned next week until "Copy last week" fills it, leaving any chore already assigned there untouched.
 - A10. Export downloads a JSON file that contains every list, item, task, plan entry, recipe, chore, chore week and member.
@@ -462,7 +466,7 @@ These are cheap now and expensive to retrofit.
 ### 15.4 What changes at v2 (not in scope now)
 
 - **Machine-to-machine authentication.** The built-in Static Web App login is user-interactive only, and managed functions are not reachable without a session cookie. Two paths, choose then:
-  - Keep managed functions and add a small set of `/api/integration/*` routes marked `anonymous` in `staticwebapp.config.json`, each verifying a long random bearer token stored in SWA application settings inside the function. Simple, adequate for one trusted server on the home network. Rotate the token yearly.
+  - Keep managed functions and add a small set of `/api/integration/*` routes marked `anonymous` in `staticwebapp.config.json`, each verifying a long random token stored in SWA application settings inside the function. Simple, adequate for one trusted server on the home network. Rotate the token yearly. This path is in use for recipe intake (S31).
   - Move the API to a standalone Function App linked to the SWA ("bring your own functions", Standard tier). The Function App can then validate Entra ID client-credential tokens issued to the home server, which is the proper answer if the integration surface grows. The Functions code moves unchanged.
 - **Secrets.** Any home server secret or tunnel token lives in Key Vault, referenced from application settings (S19 already requires this).
 - **Rate limiting and audit.** Integration routes log the service name as the caller (S23) and are rate-limited per token.

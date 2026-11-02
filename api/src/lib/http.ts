@@ -1,5 +1,5 @@
 import { app, type HttpMethod, type HttpRequest, type InvocationContext } from '@azure/functions'
-import { getCaller, principalRoles } from './caller'
+import { getCaller, integrationCaller, principalRoles } from './caller'
 import { HttpError } from './errors'
 import { ValidationError } from './schemas'
 import { getStore, type Store } from './store'
@@ -20,6 +20,8 @@ export type Handler = (ctx: Ctx, params: Record<string, string>, query: URLSearc
 
 interface RouteOptions {
   roles?: Role[]
+  /** Called by a service holding the integration token, not a signed-in member. Needs its own rule in staticwebapp.config.json. */
+  integration?: boolean
 }
 
 /**
@@ -49,7 +51,8 @@ export async function run(
   let userId = '-'
   try {
     const store = await getStore()
-    const caller = await getCaller(req.headers.get('x-ms-client-principal'), store)
+    // A custom header, because SWA does not reliably pass Authorization through to managed functions.
+    const caller = opts.integration ? integrationCaller(req.headers.get('x-integration-token')) : await getCaller(req.headers.get('x-ms-client-principal'), store)
     userId = caller.memberId
     if (opts.roles && !opts.roles.includes(caller.role)) throw new HttpError(403, 'FORBIDDEN', 'Admin only')
 

@@ -14,6 +14,8 @@ api/                  Azure Functions v4 (Node 22, TypeScript, Zod)
   src/index.ts        every route from section 10, registered in one place
 infra/main.bicep      SWA + Cosmos DB free tier + role assignment + budget alert (app settings are set by CLI)
 infra/set-google-calendar.sh     connects a Google calendar to the live site
+infra/recipe-intake.mts, .sh     daily copy of new recipes from the org file, run by Hermes
+infra/set-recipe-intake-token.sh   sets the token that job uses
 infra/family-invites.gs          Apps Script that puts emailed invites on the Family calendar
 infra/family-invites.appsscript.json   its manifest, which pins its permissions
 staticwebapp.config.json   route roles, provider lockdown, security headers (Appendix A)
@@ -53,6 +55,16 @@ Client tests include the org recipe parser, which is exercised with the awkward 
 Recipes live in the app. To bring in an org file, sign in as an admin, open Settings, and choose the file under **Import recipes**. Each top-level heading becomes a recipe (see requirements section 5.8 for the format). The browser reads the file and creates the recipes through the API, so it works against the live site, which a script on a laptop can't reach (S20).
 
 Titles the app already has are skipped, so the import can be run again after adding to the file, and it never overwrites an edit made in the app.
+
+## Daily recipe intake
+
+Recipes texted to Hermes go into the org file, and once a day Hermes copies new ones into the live app. `infra/recipe-intake.mts` parses the file and posts titles it hasn't sent before to `/api/integration/recipes`. It remembers what it has sent in `~/.hermes/workspace/state/recipe-intake-seen.json`, so a recipe deleted or renamed in the app stays that way. Delete that file and it will offer everything again, and the app adds anything it doesn't have.
+
+The job uses no AI model. It messages on WhatsApp only when it added a recipe or the app refused one, and a failed run is retried the next day.
+
+To connect it, run `bash infra/set-recipe-intake-token.sh` in a terminal signed in with `az login`. It creates a token, stores it in the app settings and in `~/.hermes/recipe_intake.env`, and never prints it. Run it again to replace the token, at least yearly.
+
+The Hermes job itself lives outside this repo. `~/.hermes/scripts/recipe_intake.sh` calls `infra/recipe-intake.sh` from this checkout, so moving the repo means updating that file.
 
 ## Deploy
 

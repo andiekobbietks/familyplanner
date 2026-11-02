@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto'
 import { HttpError } from './errors'
 import type { Store } from './store'
 import type { Caller, Member } from './types'
@@ -32,7 +33,6 @@ export function principalRoles(principalHeader: string | null | undefined): stri
  * intermittently missing from sessions. An invited member has an email and no
  * providerUserId until first sign-in, which is the only time email can match:
  * a linked member cannot be claimed by another account using the same email.
- * In v2 a service credential for the home server is added here and nowhere else.
  */
 export async function getCaller(principalHeader: string | null | undefined, store: Store): Promise<Caller> {
   if (!principalHeader) throw new HttpError(401, 'UNAUTHENTICATED', 'Sign in required')
@@ -60,4 +60,19 @@ export async function getCaller(principalHeader: string | null | undefined, stor
   }
 
   return { memberId: member.id, role: member.role, familyId: fid, displayName: member.displayName }
+}
+
+const digest = (s: string) => createHash('sha256').update(s).digest()
+
+/**
+ * The caller for a service on the home server (section 15.4). SWA has no login for a machine, so a route
+ * marked `integration` is open at the edge and this token is all that guards it. With no token set, or
+ * one too short to be safe, every request is refused. Answers 403 because SWA turns a 401 into a redirect.
+ */
+export function integrationCaller(tokenHeader: string | null | undefined): Caller {
+  const expected = process.env.INTEGRATION_TOKEN
+  if (!expected || expected.length < 32 || !tokenHeader || !timingSafeEqual(digest(tokenHeader), digest(expected))) {
+    throw new HttpError(403, 'BAD_TOKEN', 'Not allowed')
+  }
+  return { memberId: 'integration', role: 'member', familyId: familyId(), displayName: 'Integration' }
 }

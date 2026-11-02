@@ -41,6 +41,8 @@ route('recipes-create', 'POST', 'recipes', ANY, recipes.createRecipe)
 route('recipes-patch', 'PATCH', 'recipes/{id}', ANY, recipes.patchRecipe)
 route('recipes-delete', 'DELETE', 'recipes/{id}', ANY, recipes.deleteRecipe)
 
+route('integration-recipes', 'POST', 'integration/recipes', { integration: true }, recipes.intakeRecipes)
+
 route('chores-get', 'GET', 'chores', ANY, chores.getChores)
 route('chores-create', 'POST', 'chores', ANY, chores.createChore)
 route('chores-copy', 'POST', 'chores/copy-week', ANY, chores.copyChoreWeek)
