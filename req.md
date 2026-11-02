@@ -36,7 +36,7 @@ Explicitly out of scope for the first release:
 - Budgeting, chores with rewards, recurring or tracked chores, photo sharing. All possible later, none in v1.
 - Structured recipe data: nutrition information, portion scaling, ingredients as records. Recipes are plain text (Section 5.8) and the meal plan stays a plan of plain text.
 - Offline editing. The app should load its shell offline but does not need to queue writes.
-- Any AI features.
+- AI features beyond the read-only chat in Section 5.10.
 - Integration with a home server (document storage, smart home). Planned for v2; Section 15 records what v1 does now to keep that door open.
 
 ---
@@ -165,6 +165,17 @@ A display of who has which chore each week. It records the plan and nothing else
 - A chore has at most one person per week. With nobody assigned it reads as "Anyone".
 - "Copy last week" fills unassigned chores from the previous week, leaving those already set, and skips anyone who has since been removed.
 
+### 5.10 Chat
+
+Any member can ask questions about the planner in plain English and get a short answer.
+
+- It can read the calendar, meal plan, recipes, shopping lists, to-dos and chores. It can't add, change or delete anything, and it says which page to use instead.
+- It always uses Claude Haiku 5.5. The model is fixed in the API, and nothing in a request can choose another.
+- Chat has a top navigation item on larger screens. On a phone it opens from a link on the dashboard and from the account menu, so the bottom bar stays at five items.
+- The conversation is held in the open page. It survives moving between pages and goes on reload, on log out or with "New chat". Nothing is saved to the database.
+- The answer appears all at once. A request stops after 38 seconds and five rounds of looking things up, so it ends before Static Web Apps can drop it.
+- If chat isn't set up or the model can't be reached, the page says so and the rest of the planner is unaffected.
+
 ---
 
 ## 6. Architecture
@@ -192,7 +203,7 @@ Design points:
 - **API** is a small set of HTTP-triggered functions. Every handler follows the same pattern: resolve the caller, check role, validate body with a schema, perform the operation, return JSON.
 - **Caller resolution is one function.** `getCaller(req)` reads `x-ms-client-principal` and returns `{ memberId, role, familyId }`. Handlers never read the header themselves. In v2 this same function can accept a service credential for the home server without touching any handler.
 - **Database** is one Cosmos DB container with partition key `/familyId` and a `type` field discriminating documents (`list`, `item`, `task`, `plan`, `recipe`, `chore`, `choreWeek`, `member`). One family means one hot partition, which is fine at this scale.
-- **Configuration** lives in SWA application settings: the database endpoint and names, the service principal's tenant, client id and secret (S18), and any Google calendar feed addresses (S30).
+- **Configuration** lives in SWA application settings: the database endpoint and names, the service principal's tenant, client id and secret (S18), any Google calendar feed addresses (S30), and the Anthropic API key (S33).
 
 ### 6.1 Cost estimate
 
@@ -202,8 +213,9 @@ Design points:
 | Cosmos DB            | Free tier (1000 RU/s, 25 GB) | £0 (one free-tier account per subscription)                                             |
 | Custom domain        | Existing or new registrar    | £0 to £12 per year                                                                      |
 | Application Insights | Pay as you go                | £0 within the 5 GB free monthly allowance                                               |
+| Claude Haiku 5.5     | Pay as you go                | Estimated under £1 at 100 questions a month                                             |
 
-Alert on subscription spend above £5 per month so a mistake is noticed early.
+Alert on subscription spend above £5 per month so a mistake is noticed early. That alert doesn't cover the Anthropic account, so a monthly spend limit is set there too.
 
 ---
 
@@ -268,6 +280,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 - S30. A Google calendar feed address is a secret: anyone holding it can read that calendar. It lives only in application settings (S19), is never sent to the browser and is never logged (S23). Only `https://calendar.google.com/` addresses are fetched, so a bad setting cannot point the API elsewhere. If an address leaks, reset it in Google Calendar and update the setting.
 - S31. A service on the home server calls the API through `/api/integration/*` with a long random token in the `x-integration-token` header. That path is the only API path open at the SWA edge, so the token is its only protection. It is at least 32 characters, lives in application settings and in a file readable only by its owner on the home server, and is compared in constant time. With no token configured, every request is refused. The token can add recipes and nothing else: it reads no family data, and a signed-in session does not stand in for it.
 - S32. The forecast comes from Open-Meteo, which needs no key. The API fetches it and caches it in memory for 30 minutes, so the browser contacts no outside service (S10) and nothing about a person is sent. The town is fixed in the code as the centre of Reading, with coordinates to two decimal places, about a kilometre. No home address is involved, and those coordinates are all the forecast request contains.
+- S33. Chat sends the question, the recent conversation and whatever its tools read to Anthropic's API, from the API and never from the browser (S10). That can include anything about children in the planner (S28), so this is the one route by which family content leaves Azure and Google. Tools only read, are limited to the planner's own content and send names, never email addresses. There are no web or messaging tools, so text in a recipe or calendar invite that tries to instruct the model has nothing to act through. Replies are shown as plain text, so they can't load anything. Questions and answers are never logged (S23). The key lives only in application settings (S19). With no key set, chat is refused and nothing is sent.
 
 ---
 
@@ -340,6 +353,7 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | PATCH | `/recipes/{id}` | Update recipe |
 | DELETE | `/recipes/{id}` | Delete recipe |
 | POST | `/integration/recipes` | Add recipes whose titles are new, for Hermes. Token, not a login (S31). Returns `{ added, skipped, failed }` |
+| POST | `/chat` | Answer a question (`{ "messages": [{ "role", "content" }] }`, at most 20, starting and ending with the member's). Reads only (S33). Returns `{ reply }` |
 | GET | `/chores?week=YYYY-MM-DD` | Chores and that week's assignments |
 | POST | `/chores` | Create chore |
 | PATCH | `/chores/{id}` | Rename chore |
@@ -401,6 +415,7 @@ Each of these should be demonstrable before v1 is called done.
 - A9f. From a recipe, unticking one ingredient and adding the rest puts exactly those on the chosen list. Putting the recipe on the plan makes that cell link back to it.
 - A9g. A chore assigned this week appears on the dashboard with that person and is unassigned next week until "Copy last week" fills it, leaving any chore already assigned there untouched.
 - A9i. The dashboard shows today's weather for Reading and a forecast high on each of the next six days, and no browser request goes to a weather service. With the service unreachable, the dashboard shows no weather and otherwise works.
+- A9j. Chat answers a question from the planner's data using Claude Haiku 5.5, whatever the request asks for. No question can change anything in the planner, and with no API key the page says chat isn't set up.
 - A10. Export downloads a JSON file that contains every list, item, task, plan entry, recipe, chore, chore week and member.
 
 **Security and operations**

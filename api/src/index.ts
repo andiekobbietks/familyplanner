@@ -1,5 +1,6 @@
 import { route } from './lib/http'
 import * as admin from './handlers/admin'
+import * as chat from './handlers/chat'
 import * as chores from './handlers/chores'
 import * as events from './handlers/events'
 import * as lists from './handlers/lists'
@@ -53,6 +54,8 @@ route('chores-assign', 'PUT', 'chores/{id}/weeks/{week}', ANY, chores.assignChor
 route('chores-unassign', 'DELETE', 'chores/{id}/weeks/{week}', ANY, chores.unassignChore)
 
 route('weather-get', 'GET', 'weather', ANY, weather.getWeather)
+
+route('chat-post', 'POST', 'chat', ANY, chat.chat)
 
 route('settings-get', 'GET', 'settings', ANY, admin.getSettings)
 route('settings-patch', 'PATCH', 'settings', ADMIN, admin.patchSettings)

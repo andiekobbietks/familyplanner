@@ -24,6 +24,7 @@ const TOP: { to: string; label: string; current: (path: string, search: string) 
   { to: '/shopping', label: 'Shopping', current: (p) => p === '/shopping' },
   { to: '/todos', label: 'To-dos', current: (p, q) => p === '/todos' && !isChores(p, q) },
   { to: '/todos?view=chores', label: 'Chores', current: isChores },
+  { to: '/chat', label: 'Chat', current: (p) => p === '/chat' },
 ]
 
 export function Layout() {
@@ -55,6 +56,9 @@ export function Layout() {
           </button>
           {menu && (
             <div className="menu" role="menu" onClick={() => setMenu(false)}>
+              <NavLink to="/chat" role="menuitem">
+                Chat
+              </NavLink>
               <NavLink to="/profile" role="menuitem">
                 My profile
               </NavLink>

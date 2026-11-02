@@ -73,6 +73,15 @@ export const inviteSchema = z.object({
 
 export const eraseSchema = z.object({ confirm: z.literal('DELETE') })
 
+/** The recent conversation, from the browser. The model and its settings can't be sent (S33). */
+export const chatSchema = z.object({
+  messages: z
+    .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().trim().min(1).max(8000) }))
+    .min(1)
+    .max(20)
+    .refine((m) => m[0]?.role === 'user' && m.at(-1)?.role === 'user', 'Must start and end with a question'),
+})
+
 export function parse<S extends z.ZodTypeAny>(schema: S, body: unknown): z.infer<S> {
   const r = schema.safeParse(body ?? {})
   if (r.success) return r.data

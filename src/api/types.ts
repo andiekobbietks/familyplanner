@@ -5,6 +5,11 @@ export const SLOTS: Slot[] = ['breakfast', 'lunch', 'dinner']
 export const CATEGORIES = ['Produce', 'Dairy', 'Bakery', 'Household', 'Other'] as const
 export type Category = (typeof CATEGORIES)[number]
 
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export interface Person {
   id: string
   displayName: string

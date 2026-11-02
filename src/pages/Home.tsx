@@ -71,6 +71,10 @@ export function Home() {
         </h1>
         {weather?.forecast && <WeatherToday weather={weather} today={today} />}
         <p className="muted">{fmtDayLong(today)}</p>
+        <Link to="/chat" className="chat-link">
+          <Icon name="chat" size={18} />
+          Ask about the planner
+        </Link>
       </header>
 
       <div className="dash">

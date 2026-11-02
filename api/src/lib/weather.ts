@@ -25,7 +25,7 @@ const RETRY_MS = 60_000
 /** Past this an old forecast is misleading, so show nothing rather than keep it. */
 const STALE_MS = 6 * 60 * 60_000
 const FETCH_TIMEOUT_MS = 8_000
-const TIME_ZONE = 'Europe/London'
+export const TIME_ZONE = 'Europe/London'
 
 const forecastSchema = z.object({
   current: z.object({ temperature_2m: z.number(), weather_code: z.number(), is_day: z.number() }),

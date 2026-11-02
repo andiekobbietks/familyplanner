@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { Chore, ChoreSchedule, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Task, Weather } from './types'
+import type { ChatMessage, Chore, ChoreSchedule, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Task, Weather } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -78,6 +78,8 @@ export const mutations = {
   assignChore: (id: string, week: string, memberId: string) => api<void>(`/chores/${id}/weeks/${week}`, { method: 'PUT', json: { memberId } }),
   unassignChore: (id: string, week: string) => api<void>(`/chores/${id}/weeks/${week}`, { method: 'DELETE' }),
   copyChoreWeek: (week: string) => api<{ copied: number }>('/chores/copy-week', { method: 'POST', json: { week } }),
+
+  chat: (messages: ChatMessage[]) => api<{ reply: string }>('/chat', { method: 'POST', json: { messages } }),
 
   patchMe: (body: { displayName?: string; colour?: string }) => api<Me>('/me', { method: 'PATCH', json: body }),
   patchSettings: (body: { breakfastEnabled?: boolean; defaultListId?: string | null }) => api<Settings>('/settings', { method: 'PATCH', json: body }),

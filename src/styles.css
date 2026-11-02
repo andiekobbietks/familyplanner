@@ -398,6 +398,17 @@ details.done summary { cursor: pointer; padding: 0.75rem 0; color: var(--muted);
 .chore-name .grow { overflow-wrap: anywhere; }
 .chore-name .icon-btn { width: 36px; height: 36px; margin-right: -0.4rem; }
 
+/* Chat */
+.chat-link { display: inline-flex; align-items: center; gap: 0.35rem; min-height: 40px; font-weight: 600; text-decoration: none; }
+.chat-log { display: flex; flex-direction: column; gap: 0.6rem; min-height: 40dvh; }
+.chat-examples { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chat-examples .btn { padding: 0.45rem 0.8rem; white-space: normal; text-align: left; }
+.chat-msg { margin: 0; padding: 0.55rem 0.8rem; border-radius: var(--radius-sm); max-width: 85%; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-msg.user { align-self: flex-end; background: var(--accent-soft); }
+.chat-msg.assistant { align-self: flex-start; background: var(--sunk); }
+.chat-error { margin: 0; color: var(--danger); }
+.chat-form { display: flex; gap: 0.5rem; }
+
 /* Tables */
 table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
 th, td { text-align: left; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--line); vertical-align: middle; }

@@ -17,17 +17,19 @@ async function legacyNames(store: Store, familyId: string, plan: PlanEntry[]) {
 
 const textOf = (p: PlanEntry, names: Map<string, string>) => p.text ?? (p.mealId ? names.get(p.mealId) : undefined)
 
-export const getPlan: Handler = async ({ store, caller }, _p, query) => {
-  const week = query.get('week') ?? ''
-  if (!isValidDate(week)) throw badRequest('week must be the Monday as YYYY-MM-DD')
-  const end = addDays(week, 6)
-  const plan = (await store.byType<PlanEntry>(caller.familyId, 'plan')).filter((p) => p.date >= week && p.date <= end)
-  const names = await legacyNames(store, caller.familyId, plan)
-  const out = plan.flatMap((p) => {
+export async function planBetween(store: Store, familyId: string, from: string, to: string) {
+  const plan = (await store.byType<PlanEntry>(familyId, 'plan')).filter((p) => p.date >= from && p.date <= to)
+  const names = await legacyNames(store, familyId, plan)
+  return plan.flatMap((p) => {
     const text = textOf(p, names)
     return text ? [{ id: p.id, date: p.date, slot: p.slot, text }] : []
   })
-  return { body: out }
+}
+
+export const getPlan: Handler = async ({ store, caller }, _p, query) => {
+  const week = query.get('week') ?? ''
+  if (!isValidDate(week)) throw badRequest('week must be the Monday as YYYY-MM-DD')
+  return { body: await planBetween(store, caller.familyId, week, addDays(week, 6)) }
 }
 
 export const setPlanCell: Handler = async ({ store, caller }, params, _q, body) => {

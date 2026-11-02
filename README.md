@@ -1,6 +1,6 @@
 # FamilyPlanner
 
-A small private website for one household: a view of the family's Google calendars, shopping lists, to-dos, a weekly chore schedule, a weekly meal plan, the family's recipes and the local weather. See `req.md` for the full requirements. This is the v1 draft.
+A small private website for one household: a view of the family's Google calendars, shopping lists, to-dos, a weekly chore schedule, a weekly meal plan, the family's recipes, the local weather and a read-only chat assistant. See `req.md` for the full requirements. This is the v1 draft.
 
 ## Layout
 
@@ -10,12 +10,15 @@ api/                  Azure Functions v4 (Node 22, TypeScript, Zod)
   src/lib/caller.ts   the single caller-resolution function (section 6)
   src/lib/store.ts    Store interface; MemoryStore (local) and CosmosStore (Azure)
   src/lib/googleCalendars.ts   reads, caches and expands the Google calendar feeds
+  src/lib/chat.ts     the chat assistant's model settings and loop
+  src/lib/chatTools.ts   the read-only tools it can use
   src/handlers/       one file per feature, pure (ctx, params, query, body) => result
   src/index.ts        every route from section 10, registered in one place
 infra/main.bicep      SWA + Cosmos DB free tier + role assignment + budget alert (app settings are set by CLI)
 infra/set-google-calendar.sh     connects a Google calendar to the live site
 infra/recipe-intake.mts, .sh     daily copy of new recipes from the org file, run by Hermes
 infra/set-recipe-intake-token.sh   sets the token that job uses
+infra/set-chat-key.sh            sets the Anthropic API key that turns chat on
 infra/family-invites.gs          Apps Script that puts emailed invites on the Family calendar
 infra/family-invites.appsscript.json   its manifest, which pins its permissions
 staticwebapp.config.json   route roles, provider lockdown, security headers (Appendix A)
@@ -59,6 +62,14 @@ Titles the app already has are skipped, so the import can be run again after add
 ## Weather
 
 The dashboard shows the forecast for Reading from [Open-Meteo](https://open-meteo.com/), which needs no key. The API fetches it, so the browser only ever talks to this site (S32). The town is `HOME_TOWN` in `api/src/lib/weather.ts`.
+
+## Chat
+
+Members can ask questions about the planner at `/chat`. The API answers using Claude Haiku 5.5 and a set of read-only tools, so chat can read family data but can't change it. The model is `CHAT_MODEL` in `api/src/lib/chat.ts`, and a request can't choose another.
+
+To turn it on, create an API key in the Anthropic Console and set a monthly spend limit there, because the Azure budget alert doesn't cover this cost. Then run `bash infra/set-chat-key.sh` in a terminal signed in with `az login`. Until a key is set the page says chat isn't set up, and the rest of the site is unaffected. To try it locally, export `ANTHROPIC_API_KEY` in the terminal that starts the API. Don't put it in `api/local.settings.json`, which is committed.
+
+Questions and whatever the tools read go to Anthropic's API, including anything about children (S33). The conversation stays in the browser tab and isn't stored.
 
 ## Daily recipe intake
 

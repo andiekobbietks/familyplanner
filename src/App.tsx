@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { RequireMember } from './auth'
 import { Layout } from './components/Layout'
 import { Calendar } from './pages/Calendar'
+import { Chat } from './pages/Chat'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
 import { MealPlan } from './pages/MealPlan'
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="/meals" element={<MealPlan />} />
         <Route path="/meals/recipes" element={<Recipes />} />
         <Route path="/meals/recipes/:id" element={<RecipeDetail />} />
+        <Route path="/chat" element={<Chat />} />
         <Route path="/profile" element={<Profile />} />
         <Route
           path="/members"
