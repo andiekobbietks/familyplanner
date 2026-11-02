@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { mutations, useLists, useSettings } from '../api/hooks'
 import { RecipeImport } from '../components/RecipeImport'
 import { useToast } from '../components/Toast'
+import { WeatherSetting } from '../components/WeatherSetting'
 
 export function Settings() {
   const { data: settings } = useSettings()
@@ -45,6 +46,8 @@ export function Settings() {
           </select>
         </label>
       </div>
+
+      <WeatherSetting />
 
       <RecipeImport />
 

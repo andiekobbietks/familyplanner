@@ -99,11 +99,18 @@ export interface ChoreWeek extends BaseDoc {
   memberId: string
 }
 
+export interface WeatherPlace {
+  label: string
+  lat: number
+  lon: number
+}
+
 export interface Settings extends BaseDoc {
   type: 'settings'
   id: 'settings'
   breakfastEnabled: boolean
   defaultListId?: string
+  weather?: WeatherPlace
 }
 
 export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Recipe | Chore | ChoreWeek | Settings

@@ -7,6 +7,7 @@ import * as me from './handlers/me'
 import * as plan from './handlers/plan'
 import * as recipes from './handlers/recipes'
 import * as tasks from './handlers/tasks'
+import * as weather from './handlers/weather'
 
 const ADMIN = { roles: ['admin' as const] }
 const ANY = {}
@@ -50,6 +51,9 @@ route('chores-patch', 'PATCH', 'chores/{id}', ANY, chores.patchChore)
 route('chores-delete', 'DELETE', 'chores/{id}', ANY, chores.deleteChore)
 route('chores-assign', 'PUT', 'chores/{id}/weeks/{week}', ANY, chores.assignChore)
 route('chores-unassign', 'DELETE', 'chores/{id}/weeks/{week}', ANY, chores.unassignChore)
+
+route('weather-get', 'GET', 'weather', ANY, weather.getWeather)
+route('weather-places', 'GET', 'weather/places', ADMIN, weather.getWeatherPlaces)
 
 route('settings-get', 'GET', 'settings', ANY, admin.getSettings)
 route('settings-patch', 'PATCH', 'settings', ADMIN, admin.patchSettings)

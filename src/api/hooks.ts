@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { Chore, ChoreSchedule, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Task } from './types'
+import type { Chore, ChoreSchedule, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Task, Weather, WeatherPlace } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -37,6 +37,8 @@ export const usePlan = (monday: string) => useQuery({ queryKey: ['plan', monday]
 export const useRecipes = () => useQuery({ queryKey: ['recipes'], queryFn: () => api<Recipe[]>('/recipes'), staleTime: 5 * 60_000 })
 
 export const useChores = (monday: string) => useQuery({ queryKey: ['chores', monday], queryFn: () => api<ChoreSchedule>(`/chores?week=${monday}`) })
+
+export const useWeather = () => useQuery({ queryKey: ['weather'], queryFn: () => api<Weather>('/weather'), staleTime: 30 * 60_000, retry: false })
 
 export const useMembers = () => useQuery({ queryKey: ['members'], queryFn: () => api<MemberRecord[]>('/members') })
 
@@ -78,7 +80,7 @@ export const mutations = {
   copyChoreWeek: (week: string) => api<{ copied: number }>('/chores/copy-week', { method: 'POST', json: { week } }),
 
   patchMe: (body: { displayName?: string; colour?: string }) => api<Me>('/me', { method: 'PATCH', json: body }),
-  patchSettings: (body: { breakfastEnabled?: boolean; defaultListId?: string | null }) => api<Settings>('/settings', { method: 'PATCH', json: body }),
+  patchSettings: (body: { breakfastEnabled?: boolean; defaultListId?: string | null; weather?: WeatherPlace | null }) => api<Settings>('/settings', { method: 'PATCH', json: body }),
   invite: (email: string, role: string) => api<{ member: MemberRecord; instructions: string }>('/members/invite', { method: 'POST', json: { email, role } }),
   removeMember: (id: string) => api<void>(`/members/${id}`, { method: 'DELETE' }),
   erase: () => api<void>('/admin/erase', { method: 'POST', json: { confirm: 'DELETE' } }),

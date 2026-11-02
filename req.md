@@ -75,9 +75,9 @@ Notes:
 
 The landing page after login. It answers "what's happening today?" first and lets the common jobs be done in place.
 
-- A greeting and today's date.
+- A greeting and today's date, with the current weather and today's high, low and chance of rain, once a town has been chosen in Settings.
 - A Today card: today's events in time order (past ones dimmed), today's lunch and dinner (and breakfast if enabled) as editable fields, and the current user's open tasks due today or overdue, each completed with one tap.
-- The next six days, one line each: that day's events and dinner. Tapping a day opens it with the same detail as Today, so tomorrow's dinner can be planned without leaving the page. From 15:00 tomorrow is open by default, since packed lunches are prepared the evening before. 
+- The next six days, one line each: that day's events, dinner and forecast high. Tapping a day opens it with the same detail as Today, so tomorrow's dinner can be planned without leaving the page. From 15:00 tomorrow is open by default, since packed lunches are prepared the evening before. 
 - This week's chores and who has each one, linking to the schedule. Hidden until there are chores.
 - A tile per shopping list with its unchecked count, linking to the list.
 - A floating add button in thumb reach opens a sheet: type text, choose shopping or to-do, submit. It stays open for adding several things and defaults to the most recently used type.
@@ -140,6 +140,7 @@ Cells saved while the app had a meal library hold a `mealId` rather than text. T
 - Planning settings: whether Breakfast is enabled (Lunch and Dinner are always on) and the default shopping list for quick add.
 - "Export all data" downloads a single JSON file containing every record. This doubles as the manual backup mechanism.
 - Import recipes from an org file (Section 5.8).
+- Weather: search for a town and choose it, or stop showing weather. If the forecast can't be fetched, the dashboard simply shows none. The last good one may be shown for up to six hours.
 
 ### 5.8 Recipes
 
@@ -266,6 +267,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 - S29. An admin can delete all data for the family in one action, leaving only that admin's own member record so they can still sign in. This satisfies the family's own right to erasure and makes decommissioning clean.
 - S30. A Google calendar feed address is a secret: anyone holding it can read that calendar. It lives only in application settings (S19), is never sent to the browser and is never logged (S23). Only `https://calendar.google.com/` addresses are fetched, so a bad setting cannot point the API elsewhere. If an address leaks, reset it in Google Calendar and update the setting.
 - S31. A service on the home server calls the API through `/api/integration/*` with a long random token in the `x-integration-token` header. That path is the only API path open at the SWA edge, so the token is its only protection. It is at least 32 characters, lives in application settings and in a file readable only by its owner on the home server, and is compared in constant time. With no token configured, every request is refused. The token can add recipes and nothing else: it reads no family data, and a signed-in session does not stand in for it.
+- S32. The forecast comes from Open-Meteo, which needs no key. The API fetches it and caches it in memory for 30 minutes, so the browser contacts no outside service (S10) and nothing about a person is sent. The family's location is a town chosen by an admin, kept in settings with coordinates rounded to two decimal places, about a kilometre. Those coordinates are all the forecast request contains. Place searches send only the typed text.
 
 ---
 
@@ -304,7 +306,7 @@ chore    { name }
 choreWeek { week: "YYYY-MM-DD" (the Monday), choreId, memberId }
 ```
 
-Plan entries are keyed so that `(familyId, date, slot)` is unique, and chore weeks so that `(familyId, week, choreId)` is. Settings that are family-wide (enabled meal slots, default shopping list) live on a single `settings` document with `id = "settings"`.
+Plan entries are keyed so that `(familyId, date, slot)` is unique, and chore weeks so that `(familyId, week, choreId)` is. Settings that are family-wide (enabled meal slots, default shopping list, weather town) live on a single `settings` document with `id = "settings"`.
 
 Soft delete is not needed. Deletes are real, and the periodic backup plus manual export cover mistakes.
 
@@ -345,6 +347,8 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | PUT | `/chores/{id}/weeks/{week}` | Assign a member for that week |
 | DELETE | `/chores/{id}/weeks/{week}` | Clear that week's assignment |
 | POST | `/chores/copy-week` | Fill unassigned chores from the previous week (`{ "week": "YYYY-MM-DD" }`) |
+| GET | `/weather` | The chosen town and its forecast, or nulls |
+| GET | `/weather/places?q=` | Search for a town (admin) |
 | GET | `/settings` | Family-wide settings |
 | PATCH | `/settings` | Update settings (admin) |
 | GET | `/members` | Members (admin) |
@@ -397,6 +401,7 @@ Each of these should be demonstrable before v1 is called done.
 - A9h. `POST /api/integration/recipes` with no token or a wrong one returns 403 and writes nothing. With the token, a new title is added and an existing one left unchanged. A recipe deleted in the app is not added again by the next daily intake.
 - A9f. From a recipe, unticking one ingredient and adding the rest puts exactly those on the chosen list. Putting the recipe on the plan makes that cell link back to it.
 - A9g. A chore assigned this week appears on the dashboard with that person and is unassigned next week until "Copy last week" fills it, leaving any chore already assigned there untouched.
+- A9i. With a town chosen, the dashboard shows today's weather and a forecast high on each of the next six days, and no browser request goes to a weather service. With none chosen, or the service unreachable, the dashboard shows no weather and otherwise works.
 - A10. Export downloads a JSON file that contains every list, item, task, plan entry, recipe, chore, chore week and member.
 
 **Security and operations**

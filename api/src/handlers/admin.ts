@@ -17,7 +17,11 @@ export const patchSettings: Handler = async ({ store, caller }, _p, _q, body) =>
     if (!list) throw badRequest('Unknown list')
   }
   const existing = await store.get<Settings>(caller.familyId, 'settings', 'settings')
-  const fields = { breakfastEnabled: patch.breakfastEnabled ?? existing?.breakfastEnabled ?? false, defaultListId: patch.defaultListId === null ? undefined : (patch.defaultListId ?? existing?.defaultListId) }
+  const fields = {
+    breakfastEnabled: patch.breakfastEnabled ?? existing?.breakfastEnabled ?? false,
+    defaultListId: patch.defaultListId === null ? undefined : (patch.defaultListId ?? existing?.defaultListId),
+    weather: patch.weather === null ? undefined : (patch.weather ?? existing?.weather),
+  }
   const saved = existing ? await store.upsert(touch(caller, existing, fields)) : await store.upsert(stamp(caller, 'settings', fields, 'settings'))
   return { body: saved }
 }

@@ -1,6 +1,6 @@
 # FamilyPlanner
 
-A small private website for one household: a view of the family's Google calendars, shopping lists, to-dos, a weekly chore schedule, a weekly meal plan and the family's recipes. See `req.md` for the full requirements. This is the v1 draft.
+A small private website for one household: a view of the family's Google calendars, shopping lists, to-dos, a weekly chore schedule, a weekly meal plan, the family's recipes and the local weather. See `req.md` for the full requirements. This is the v1 draft.
 
 ## Layout
 
@@ -55,6 +55,10 @@ Client tests include the org recipe parser, which is exercised with the awkward 
 Recipes live in the app. To bring in an org file, sign in as an admin, open Settings, and choose the file under **Import recipes**. Each top-level heading becomes a recipe (see requirements section 5.8 for the format). The browser reads the file and creates the recipes through the API, so it works against the live site, which a script on a laptop can't reach (S20).
 
 Titles the app already has are skipped, so the import can be run again after adding to the file, and it never overwrites an edit made in the app.
+
+## Weather
+
+An admin chooses a town in Settings and the dashboard shows its forecast from [Open-Meteo](https://open-meteo.com/), which needs no key. The API fetches it, so the browser only ever talks to this site (S32).
 
 ## Daily recipe intake
 

@@ -1,12 +1,13 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { useCalendarEvents, useChores, useLists, useMe, usePlan, useSettings, useTasks } from '../api/hooks'
-import type { Occurrence, PlanEntry, Slot, Task } from '../api/types'
+import { useCalendarEvents, useChores, useLists, useMe, usePlan, useSettings, useTasks, useWeather } from '../api/hooks'
+import type { Occurrence, PlanEntry, Slot, Task, Weather, WeatherDay } from '../api/types'
 import { Icon } from '../components/Icons'
 import { MealInput } from '../components/MealInput'
 import { Avatar, usePersonMap } from '../components/People'
 import { QuickAdd } from '../components/QuickAdd'
 import { addDays, dateOfInstant, fmtDayLong, fmtTime, fmtWeekday, mondayOf, relativeDay, todayISO } from '../lib/dates'
+import { degrees, describeWeather } from '../lib/weather'
 import { useSetTaskDone } from './Todos'
 
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
@@ -26,6 +27,7 @@ export function Home() {
   const { data: lists = [] } = useLists()
   const { data: tasks = [] } = useTasks('mine')
   const { data: settings } = useSettings()
+  const { data: weather } = useWeather()
   const thisWeek = usePlan(mondayOf(today))
   const nextWeek = usePlan(mondayOf(lastDay))
   // Packed lunches are made the evening before, so from 15:00 tomorrow opens on its own (section 5.2).
@@ -55,6 +57,7 @@ export function Home() {
     plan: plan.filter((p) => p.date === date),
     slots,
     showCalendar: calendars.length > 1,
+    forecast: weather?.forecast?.days.find((w) => w.date === date),
     // Anything overdue stays on today until it is done.
     tasks: tasks.filter((t) => t.dueDate && (date === today ? t.dueDate <= today : t.dueDate === date)),
   })
@@ -67,6 +70,7 @@ export function Home() {
           {me ? `, ${me.displayName}` : ''}
         </h1>
         <p className="muted">{fmtDayLong(today)}</p>
+        {weather?.forecast && <WeatherToday weather={weather} today={today} />}
       </header>
 
       <div className="dash">
@@ -121,6 +125,25 @@ export function Home() {
   )
 }
 
+function WeatherToday({ weather, today }: { weather: Weather; today: string }) {
+  const { current, days } = weather.forecast!
+  const { label, icon } = describeWeather(current.code, current.isDay)
+  const day = days.find((d) => d.date === today)
+  return (
+    <p className="weather-now">
+      <Icon name={icon} />
+      <b>{degrees(current.temperature)}</b>
+      <span>{label}</span>
+      {day && (
+        <span className="muted">
+          High {degrees(day.high)}, low {degrees(day.low)}
+          {day.rainChance !== null && `, ${day.rainChance}% rain`}
+        </span>
+      )}
+    </p>
+  )
+}
+
 /** A read-only view of who has what. Assigning happens on the chores page. */
 function ChoresThisWeek({ week }: { week: string }) {
   const { data } = useChores(week)
@@ -163,6 +186,7 @@ interface DayProps {
   slots: Slot[]
   showCalendar: boolean
   tasks: Task[]
+  forecast?: WeatherDay
 }
 
 function DayDetail({ date, events, plan, slots, showCalendar, tasks }: DayProps) {
@@ -215,7 +239,8 @@ function DayDetail({ date, events, plan, slots, showCalendar, tasks }: DayProps)
 
 /** One line per day until tapped, when it opens up with the same detail as today. */
 function WeekRow({ open, onToggle, ...day }: DayProps & { open: boolean; onToggle: () => void }) {
-  const { date, events, plan } = day
+  const { date, events, plan, forecast } = day
+  const look = forecast && describeWeather(forecast.code)
   const dinner = plan.find((p) => p.slot === 'dinner')?.text
   return (
     <li className={open ? 'open' : ''}>
@@ -234,6 +259,12 @@ function WeekRow({ open, onToggle, ...day }: DayProps & { open: boolean; onToggl
           ))}
           <span className="week-dinner">{dinner ?? 'No dinner planned'}</span>
         </span>
+        {forecast && look && (
+          <span className="week-weather" role="img" aria-label={`${look.label}, high ${degrees(forecast.high)}`} title={look.label}>
+            <Icon name={look.icon} size={20} />
+            {degrees(forecast.high)}
+          </span>
+        )}
         <Icon name="down" size={18} />
       </button>
       {open && <DayDetail {...day} />}

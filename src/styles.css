@@ -240,6 +240,9 @@ details.done summary { cursor: pointer; padding: 0.75rem 0; color: var(--muted);
 .hello { padding: 0.25rem 0 1rem; }
 .hello h1 { font-size: 1.75rem; margin: 0 0 0.1rem; }
 .hello p { margin: 0; }
+.weather-now { display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.4rem; margin-top: 0.35rem; font-size: 0.95rem; }
+.weather-now b { font-family: var(--display); font-size: 1.15rem; font-weight: 800; }
+.weather-now .muted { width: 100%; font-size: 0.85rem; }
 .dash { display: grid; gap: 1.25rem; }
 .dash .card { margin: 0; }
 @media (min-width: 900px) {
@@ -270,6 +273,7 @@ details.done summary { cursor: pointer; padding: 0.75rem 0; color: var(--muted);
 .day-badge { display: flex; flex-direction: column; align-items: center; width: 2.4rem; flex-shrink: 0; line-height: 1.1; }
 .day-badge span { font-size: 0.7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .day-badge b { font-family: var(--display); font-size: 1.2rem; font-weight: 800; }
+.week-weather { display: flex; align-items: center; gap: 0.2rem; margin-top: 0.45rem; color: var(--muted); font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .week-summary { display: block; padding-top: 0.1rem; }
 .week-summary .evt { font-size: 0.88rem; padding: 3px 8px; margin: 0 0 3px; }
 .week-events, .week-dinner { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
