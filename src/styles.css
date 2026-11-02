@@ -113,6 +113,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .tabbar { display: none; }
   .content { padding: 1rem 1.5rem 2rem; }
 }
+/* Tablets: seven sections only fit with the bar tightened and the account name dropped. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .topbar { gap: 0.5rem; padding-left: 1rem; padding-right: 1rem; }
+  .topnav { margin-left: 0; gap: 0; }
+  .topnav a { padding: 0.4rem 0.5rem; font-size: 0.9rem; }
+  .menu-name { display: none; }
+}
 
 /* Page furniture */
 .page-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.75rem; min-height: 44px; }

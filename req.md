@@ -143,7 +143,7 @@ Cells saved while the app had a meal library hold a `mealId` rather than text. T
 
 ### 5.8 Recipes
 
-The family's recipes, kept in the app. They sit on a Recipes tab beside the plan, so the bottom bar stays at five items.
+The family's recipes, kept in the app. They have their own item in the top navigation on larger screens. On a phone they are a tab beside the plan, so the bottom bar stays at five items.
 
 - A recipe has a title (required), summary, serves, time, source, tags, ingredients, method and notes. Serves and time are free text ("~8 pancakes", "6 hours 15 minutes plus resting time"). A recipe can be as little as a title and a link.
 - Ingredients, method and notes are plain text, one entry per line. A line ending in a colon is a subheading, which is how a cake and its glaze, or a sub-recipe, are kept apart. Method numbering restarts after a subheading.
@@ -159,7 +159,7 @@ The family's recipes, kept in the app. They sit on a Recipes tab beside the plan
 A display of who has which chore each week. It records the plan and nothing else: any adult can do any chore, so there is no completing, no reminding and no rotation.
 
 - The family keeps one list of chores by name. Any member can add, rename or delete them. Deleting a chore removes it from every week.
-- The page shows one week at a time, Monday to Sunday, with previous and next navigation like the meal plan. Each chore shows the family's people as chips. Tap one to assign the chore for that week and tap again to clear it.
+- The page shows one week at a time, Monday to Sunday, with previous and next navigation like the meal plan. Larger screens have a Chores item in the top navigation, and on a phone it is a tab on the To-dos page. Each chore shows the family's people as chips. Tap one to assign the chore for that week and tap again to clear it.
 - A chore has at most one person per week. With nobody assigned it reads as "Anyone".
 - "Copy last week" fills unassigned chores from the previous week, leaving those already set, and skips anyone who has since been removed.
 

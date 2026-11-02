@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useMe } from '../api/hooks'
 import { Icon, type IconName } from './Icons'
 import { Avatar } from './People'
@@ -12,8 +12,23 @@ const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: '/todos', label: 'To-dos', icon: 'check' },
 ]
 
+const isChores = (path: string, search: string) => path === '/todos' && new URLSearchParams(search).get('view') === 'chores'
+const isRecipes = (path: string) => path.startsWith('/meals/recipes')
+
+/** There is room for Recipes and Chores at the top. On a phone they stay as tabs inside Meals and To-dos. */
+const TOP: { to: string; label: string; current: (path: string, search: string) => boolean }[] = [
+  { to: '/', label: 'Home', current: (p) => p === '/' },
+  { to: '/calendar', label: 'Calendar', current: (p) => p === '/calendar' },
+  { to: '/meals', label: 'Meals', current: (p) => p === '/meals' },
+  { to: '/meals/recipes', label: 'Recipes', current: isRecipes },
+  { to: '/shopping', label: 'Shopping', current: (p) => p === '/shopping' },
+  { to: '/todos', label: 'To-dos', current: (p, q) => p === '/todos' && !isChores(p, q) },
+  { to: '/todos?view=chores', label: 'Chores', current: isChores },
+]
+
 export function Layout() {
   const { data: me } = useMe()
+  const { pathname, search } = useLocation()
   const [menu, setMenu] = useState(false)
 
   return (
@@ -24,11 +39,14 @@ export function Layout() {
           FamilyPlanner
         </NavLink>
         <nav className="topnav" aria-label="Sections">
-          {NAV.map((n) => (
-            <NavLink key={n.to} to={n.to} end={n.to === '/'}>
-              {n.label}
-            </NavLink>
-          ))}
+          {TOP.map((n) => {
+            const current = n.current(pathname, search)
+            return (
+              <Link key={n.to} to={n.to} className={current ? 'active' : undefined} aria-current={current ? 'page' : undefined}>
+                {n.label}
+              </Link>
+            )
+          })}
         </nav>
         <div className="menu-wrap">
           <button type="button" className="menu-btn" aria-haspopup="menu" aria-expanded={menu} aria-label="Account menu" onClick={() => setMenu((m) => !m)}>
