@@ -69,8 +69,8 @@ export function Home() {
           {greeting(now.getHours())}
           {me ? `, ${me.displayName}` : ''}
         </h1>
-        <p className="muted">{fmtDayLong(today)}</p>
         {weather?.forecast && <WeatherToday weather={weather} today={today} />}
+        <p className="muted">{fmtDayLong(today)}</p>
       </header>
 
       <div className="dash">
@@ -131,7 +131,7 @@ function WeatherToday({ weather, today }: { weather: Weather; today: string }) {
   const day = days.find((d) => d.date === today)
   return (
     <p className="weather-now">
-      <Icon name={icon} />
+      <Icon name={icon} size={34} />
       <b>{degrees(current.temperature)}</b>
       <span>{label}</span>
       {day && (

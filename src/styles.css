@@ -240,9 +240,9 @@ details.done summary { cursor: pointer; padding: 0.75rem 0; color: var(--muted);
 .hello { padding: 0.25rem 0 1rem; }
 .hello h1 { font-size: 1.75rem; margin: 0 0 0.1rem; }
 .hello p { margin: 0; }
-.weather-now { display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.4rem; margin-top: 0.35rem; font-size: 0.95rem; }
-.weather-now b { font-family: var(--display); font-size: 1.15rem; font-weight: 800; }
-.weather-now .muted { width: 100%; font-size: 0.85rem; }
+.hello .weather-now { display: flex; flex-wrap: wrap; align-items: center; gap: 0.15rem 0.5rem; margin: 0.45rem 0 0.5rem; font-size: 1.2rem; font-weight: 600; }
+.weather-now b { font-family: var(--display); font-size: 2rem; font-weight: 800; line-height: 1.1; }
+.weather-now .muted { width: 100%; font-size: 1rem; font-weight: 400; }
 .dash { display: grid; gap: 1.25rem; }
 .dash .card { margin: 0; }
 @media (min-width: 900px) {
