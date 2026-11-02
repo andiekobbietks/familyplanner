@@ -2,8 +2,8 @@ import { route } from './lib/http'
 import * as admin from './handlers/admin'
 import * as events from './handlers/events'
 import * as lists from './handlers/lists'
-import * as meals from './handlers/meals'
 import * as me from './handlers/me'
+import * as plan from './handlers/plan'
 import * as tasks from './handlers/tasks'
 
 const ADMIN = { roles: ['admin' as const] }
@@ -32,16 +32,10 @@ route('tasks-create', 'POST', 'tasks', ANY, tasks.createTask)
 route('tasks-patch', 'PATCH', 'tasks/{id}', ANY, tasks.patchTask)
 route('tasks-delete', 'DELETE', 'tasks/{id}', ANY, tasks.deleteTask)
 
-route('meals-get', 'GET', 'meals', ANY, meals.getMeals)
-route('meals-create', 'POST', 'meals', ANY, meals.createMeal)
-route('meals-patch', 'PATCH', 'meals/{id}', ANY, meals.patchMeal)
-route('meals-archive', 'DELETE', 'meals/{id}', ADMIN, meals.archiveMeal)
-
-route('plan-get', 'GET', 'plan', ANY, meals.getPlan)
-route('plan-copy', 'POST', 'plan/copy-week', ANY, meals.copyWeek)
-route('plan-shop', 'POST', 'plan/shop', ANY, meals.shop)
-route('plan-set', 'PUT', 'plan/{date}/{slot}', ANY, meals.setPlanCell)
-route('plan-clear', 'DELETE', 'plan/{date}/{slot}', ANY, meals.clearPlanCell)
+route('plan-get', 'GET', 'plan', ANY, plan.getPlan)
+route('plan-copy', 'POST', 'plan/copy-week', ANY, plan.copyWeek)
+route('plan-set', 'PUT', 'plan/{date}/{slot}', ANY, plan.setPlanCell)
+route('plan-clear', 'DELETE', 'plan/{date}/{slot}', ANY, plan.clearPlanCell)
 
 route('settings-get', 'GET', 'settings', ANY, admin.getSettings)
 route('settings-patch', 'PATCH', 'settings', ADMIN, admin.patchSettings)

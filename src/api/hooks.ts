@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { EventInput, Item, List, Me, MemberRecord, Meal, Occurrence, Person, PlanEntry, Settings, Task } from './types'
+import type { EventInput, Item, List, Me, MemberRecord, Occurrence, Person, PlanEntry, Settings, Task } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -22,12 +22,6 @@ export const useTasks = (view: 'mine' | 'all' | 'done') =>
 
 export const useEvents = (from: string, to: string) =>
   useQuery({ queryKey: ['events', from, to], queryFn: () => api<Occurrence[]>(`/events?from=${from}&to=${to}`) })
-
-export const useMeals = (q = '', tag = '') =>
-  useQuery({
-    queryKey: ['meals', q, tag],
-    queryFn: () => api<Meal[]>(`/meals?q=${encodeURIComponent(q)}&tag=${encodeURIComponent(tag)}`),
-  })
 
 export const usePlan = (monday: string) => useQuery({ queryKey: ['plan', monday], queryFn: () => api<PlanEntry[]>(`/plan?week=${monday}`) })
 
@@ -59,14 +53,10 @@ export const mutations = {
     api<Occurrence>(`/events/${id}${scope ? `?scope=${scope}&date=${date}` : ''}`, { method: 'PUT', json: body }),
   deleteEvent: (id: string, date?: string) => api<void>(`/events/${id}${date ? `?date=${date}` : ''}`, { method: 'DELETE' }),
 
-  createMeal: (body: Partial<Meal>) => api<Meal>('/meals', { method: 'POST', json: body }),
-  patchMeal: (id: string, body: Partial<Meal>) => api<Meal>(`/meals/${id}`, { method: 'PATCH', json: body }),
-  archiveMeal: (id: string) => api<void>(`/meals/${id}`, { method: 'DELETE' }),
-  setCell: (date: string, slot: string, body: { mealId?: string; text?: string; cook?: string | null; note?: string }) =>
+  setCell: (date: string, slot: string, body: { text: string }) =>
     api<PlanEntry>(`/plan/${date}/${slot}`, { method: 'PUT', json: body }),
   clearCell: (date: string, slot: string) => api<void>(`/plan/${date}/${slot}`, { method: 'DELETE' }),
   copyWeek: (week: string) => api<{ copied: number }>('/plan/copy-week', { method: 'POST', json: { week } }),
-  shop: (body: { listId: string; mealIds?: string[]; week?: string }) => api<{ added: number; skipped: number }>('/plan/shop', { method: 'POST', json: body }),
 
   patchMe: (body: { displayName?: string; colour?: string }) => api<Me>('/me', { method: 'PATCH', json: body }),
   patchSettings: (body: { breakfastEnabled?: boolean; defaultListId?: string | null }) => api<Settings>('/settings', { method: 'PATCH', json: body }),

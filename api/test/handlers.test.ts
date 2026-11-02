@@ -4,7 +4,7 @@ import { HttpError } from '../src/lib/errors'
 import type { Ctx } from '../src/lib/http'
 import { MemoryStore } from '../src/lib/memoryStore'
 import { seed } from '../src/lib/seed'
-import { shop, setPlanCell, copyWeek } from '../src/handlers/meals'
+import { setPlanCell, copyWeek, getPlan } from '../src/handlers/plan'
 import { patchMe } from '../src/handlers/me'
 import { createTask, deleteTask, patchTask } from '../src/handlers/tasks'
 import { addItem, deleteItem, getItems, patchItem } from '../src/handlers/lists'
@@ -78,29 +78,35 @@ describe('validation', () => {
   it('A13: a 10,000 character title is rejected', async () => {
     await expect(createTask(ctx, {}, q(), { title: 'x'.repeat(10000) })).rejects.toBeInstanceOf(ValidationError)
   })
-  it('a plan cell needs exactly one of mealId or text', async () => {
-    await expect(setPlanCell(ctx, { date: '2026-09-16', slot: 'dinner' }, q(), { mealId: 'meal-1', text: 'Pizza' })).rejects.toBeInstanceOf(ValidationError)
+  it('a plan cell needs text and a real slot', async () => {
+    await expect(setPlanCell(ctx, { date: '2026-09-16', slot: 'dinner' }, q(), { text: '  ' })).rejects.toBeInstanceOf(ValidationError)
     await expect(setPlanCell(ctx, { date: '2026-09-16', slot: 'brunch' }, q(), { text: 'Pizza' })).rejects.toBeInstanceOf(ValidationError)
   })
 })
 
-describe('shopping integration', () => {
-  it('A9a: adds missing ingredients, skips those already unchecked, notes the meal', async () => {
-    // Spaghetti bolognese has five ingredients. Put two of them on Groceries first.
-    await addItem(ctx, { id: 'l-groceries' }, q(), { name: 'onion' })
-    await addItem(ctx, { id: 'l-groceries' }, q(), { name: 'Spaghetti' })
-    const r = await shop(ctx, {}, q(), { listId: 'l-groceries', mealIds: ['meal-1'] })
-    expect(r.body).toEqual({ added: 3, skipped: 2 })
-    const items = (await getItems(ctx, { id: 'l-groceries' }, q(), undefined)).body as Item[]
-    const added = items.filter((i) => i.note === 'Spaghetti bolognese')
-    expect(added.map((i) => i.name).sort()).toEqual(['500 g mince', 'Parmesan', 'Tinned tomatoes'])
-    expect(added.every((i) => !i.checked)).toBe(true)
+describe('cells planned from the old meal library', () => {
+  const planLegacy = async () => {
+    await store.deleteAll('home')
+    await store.upsert({ ...stamp(tim, 'meal', {}, 'meal-x'), name: 'Roast chicken' } as BaseDoc)
+    await store.upsert({ ...stamp(tim, 'plan', { date: '2026-09-14', slot: 'dinner', mealId: 'meal-x' }, 'plan:2026-09-14:dinner') } as BaseDoc)
+  }
+  it('still show the meal name', async () => {
+    await planLegacy()
+    const r = await getPlan(ctx, {}, q('week=2026-09-14'), undefined)
+    expect(r.body).toEqual([{ id: 'plan:2026-09-14:dinner', date: '2026-09-14', slot: 'dinner', text: 'Roast chicken' }])
   })
-  it('a checked item does not count as already on the list', async () => {
-    // Bread is unchecked in the seed. Once it is checked off, a meal with Bread adds it again.
-    await patchItem(ctx, { id: 'i-2' }, q(), { checked: true })
-    const r = await shop(ctx, {}, q(), { listId: 'l-groceries', mealIds: ['meal-5'] })
-    expect(r.body).toEqual({ added: 3, skipped: 0 })
+  it('copy forward as text', async () => {
+    await planLegacy()
+    await copyWeek(ctx, {}, q(), { week: '2026-09-21' })
+    const copied = await store.get<BaseDoc & { text: string; mealId?: string }>('home', 'plan:2026-09-21:dinner', 'plan')
+    expect(copied?.text).toBe('Roast chicken')
+    expect(copied?.mealId).toBeUndefined()
+  })
+  it('take the new text when edited', async () => {
+    await planLegacy()
+    await setPlanCell(ctx, { date: '2026-09-14', slot: 'dinner' }, q(), { text: 'Takeaway' })
+    const r = await getPlan(ctx, {}, q('week=2026-09-14'), undefined)
+    expect((r.body as { text: string }[])[0].text).toBe('Takeaway')
   })
 })
 

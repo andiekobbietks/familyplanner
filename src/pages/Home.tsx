@@ -1,148 +1,200 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useEvents, useLists, useMe, usePlan, useSettings, useTasks } from '../api/hooks'
-import type { Occurrence, PlanEntry, Slot } from '../api/types'
+import type { Occurrence, PlanEntry, Slot, Task } from '../api/types'
+import { Icon } from '../components/Icons'
+import { MealInput } from '../components/MealInput'
+import { Avatars, usePersonMap } from '../components/People'
 import { QuickAdd } from '../components/QuickAdd'
-import { Avatars } from '../components/People'
-import { addDays, dateOfInstant, fmtDayLong, fmtTime, mondayOf, relativeDay, todayISO } from '../lib/dates'
+import { addDays, dateOfInstant, fmtDayLong, fmtTime, fmtWeekday, mondayOf, relativeDay, todayISO } from '../lib/dates'
+import { useSetTaskDone } from './Todos'
 
-function slotsFor(breakfast: boolean): Slot[] {
-  return breakfast ? ['breakfast', 'lunch', 'dinner'] : ['lunch', 'dinner']
+const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
+
+function greeting(hour: number) {
+  if (hour < 12) return 'Good morning'
+  return hour < 18 ? 'Good afternoon' : 'Good evening'
 }
+
+/** All-day events first, then by start time. */
+const byStart = (a: Occurrence, b: Occurrence) => Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start)
 
 export function Home() {
   const today = todayISO()
   const tomorrow = addDays(today, 1)
+  const lastDay = addDays(today, 6)
+  const now = new Date()
   const { data: me } = useMe()
-  const { data: events } = useEvents(today, addDays(today, 6))
-  const { data: lists } = useLists()
-  const { data: tasks } = useTasks('mine')
+  const { data: events = [] } = useEvents(today, lastDay)
+  const { data: lists = [] } = useLists()
+  const { data: tasks = [] } = useTasks('mine')
   const { data: settings } = useSettings()
   const thisWeek = usePlan(mondayOf(today))
-  const nextWeek = usePlan(mondayOf(tomorrow))
-  const afterThree = new Date().getHours() >= 15
+  const nextWeek = usePlan(mondayOf(lastDay))
+  // Packed lunches are made the evening before, so from 15:00 tomorrow opens on its own (section 5.2).
+  const [expanded, setExpanded] = useState<string | null>(now.getHours() >= 15 ? tomorrow : null)
 
-  const byDay = new Map<string, Occurrence[]>()
-  for (const e of events ?? []) {
-    const d = e.allDay ? e.start : dateOfInstant(e.start)
-    // A multi-day all-day event shows on each day it covers.
-    const last = e.allDay ? e.end : dateOfInstant(e.end)
-    for (let day = d < today ? today : d; day <= last && day <= addDays(today, 6); day = addDays(day, 1)) {
-      if (!byDay.has(day)) byDay.set(day, [])
-      byDay.get(day)!.push(e)
+  const slots: Slot[] = settings?.breakfastEnabled ? ['breakfast', 'lunch', 'dinner'] : ['lunch', 'dinner']
+  const plan = [...(thisWeek.data ?? []), ...(mondayOf(lastDay) === mondayOf(today) ? [] : (nextWeek.data ?? []))]
+  const days = Array.from({ length: 7 }, (_, i) => addDays(today, i))
+
+  const eventsByDay = useMemo(() => {
+    const m = new Map<string, Occurrence[]>()
+    for (const e of events) {
+      const first = e.allDay ? e.start : dateOfInstant(e.start)
+      const last = e.allDay ? e.end : dateOfInstant(e.end)
+      // A multi-day event shows on each day it covers.
+      for (let d = first < today ? today : first; d <= last && d <= lastDay; d = addDays(d, 1)) {
+        if (!m.has(d)) m.set(d, [])
+        m.get(d)!.push(e)
+      }
     }
-  }
-  const days = [...byDay.keys()].sort()
+    for (const list of m.values()) list.sort(byStart)
+    return m
+  }, [events, today, lastDay])
 
-  const dueTasks = (tasks ?? []).filter((t) => t.dueDate && t.dueDate <= today)
-  const planFor = (date: string) => (mondayOf(date) === mondayOf(today) ? thisWeek.data : nextWeek.data) ?? []
-  const cell = (date: string, slot: Slot): PlanEntry | undefined => planFor(date).find((p) => p.date === date && p.slot === slot)
-
-  const mealLine = (date: string, slot: Slot) => {
-    const c = cell(date, slot)
-    const label = slot[0].toUpperCase() + slot.slice(1)
-    return (
-      <div className="mealline" key={`${date}-${slot}`}>
-        <span className="slot">{label}</span>
-        {c ? (
-          <span className="grow">
-            {c.mealName ?? c.text}
-            {c.note && <span className="muted small"> · {c.note}</span>}
-          </span>
-        ) : (
-          <Link className="grow" to={`/meals?week=${mondayOf(date)}&pick=${date}:${slot}`}>
-            Plan {slot}
-          </Link>
-        )}
-      </div>
-    )
-  }
+  const dayProps = (date: string) => ({
+    date,
+    events: eventsByDay.get(date) ?? [],
+    plan: plan.filter((p) => p.date === date),
+    slots,
+    // Anything overdue stays on today until it is done.
+    tasks: tasks.filter((t) => t.dueDate && (date === today ? t.dueDate <= today : t.dueDate === date)),
+  })
 
   return (
     <>
-      <h1>{fmtDayLong(today)}</h1>
-      <QuickAdd />
+      <header className="hello">
+        <h1>
+          {greeting(now.getHours())}
+          {me ? `, ${me.displayName}` : ''}
+        </h1>
+        <p className="muted">{fmtDayLong(today)}</p>
+      </header>
+
       <div className="dash">
-        <section className="card span2">
-          <div className="row between">
-            <h2>Next seven days</h2>
-            <Link to="/calendar" className="small">
-              Calendar
-            </Link>
+        <section className="dash-today" aria-labelledby="today-h">
+          <h2 id="today-h" className="section-title">
+            Today
+          </h2>
+          <div className="card today-card">
+            <DayDetail {...dayProps(today)} />
           </div>
-          {days.length === 0 && <p className="empty">Nothing on the calendar this week.</p>}
-          {days.map((d) => (
-            <div className="daygroup" key={d}>
-              <h3>{relativeDay(d)}</h3>
-              <ul className="list">
-                {byDay.get(d)!.map((e) => (
-                  <li key={`${e.id}-${e.occurrenceDate}`}>
-                    <span className="due">{e.allDay ? 'All day' : fmtTime(e.start)}</span>
-                    <span className="title">
-                      {e.title}
-                      {e.location && <span className="sub">{e.location}</span>}
-                    </span>
-                    <Avatars ids={e.assignees} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
         </section>
 
-        <section className="card">
-          <div className="row between">
-            <h2>Meals</h2>
-            <Link to="/meals" className="small">
+        <section className="dash-week" aria-labelledby="week-h">
+          <div className="section-head">
+            <h2 id="week-h" className="section-title">
               This week
-            </Link>
+            </h2>
+            <Link to="/calendar">Calendar</Link>
           </div>
-          {slotsFor(!!settings?.breakfastEnabled).map((s) => mealLine(today, s))}
-          {afterThree && (
-            <>
-              <h3 style={{ marginTop: '0.5rem' }}>Tomorrow</h3>
-              {mealLine(tomorrow, 'lunch')}
-            </>
-          )}
-        </section>
-
-        <section className="card">
-          <div className="row between">
-            <h2>Shopping</h2>
-            <Link to="/shopping" className="small">
-              All lists
-            </Link>
-          </div>
-          {(lists ?? []).length === 0 && <p className="empty">No lists yet.</p>}
-          <ul className="list">
-            {(lists ?? []).map((l) => (
-              <li key={l.id}>
-                <Link to={`/shopping?list=${l.id}`} className="title">
-                  {l.name}
-                </Link>
-                <span className={`pill ${l.uncheckedCount ? '' : 'grey'}`}>{l.uncheckedCount} to buy</span>
-              </li>
+          <ul className="week card">
+            {days.slice(1).map((d) => (
+              <WeekRow key={d} {...dayProps(d)} open={expanded === d} onToggle={() => setExpanded(expanded === d ? null : d)} />
             ))}
           </ul>
         </section>
 
-        <section className="card span2">
-          <div className="row between">
-            <h2>{me ? `${me.displayName}'s to-dos` : 'To-dos'} due</h2>
-            <Link to="/todos" className="small">
-              All to-dos
-            </Link>
-          </div>
-          {dueTasks.length === 0 && <p className="empty">Nothing due today. {tasks?.length ? `${tasks.length} open.` : ''}</p>}
-          <ul className="list">
-            {dueTasks.map((t) => (
-              <li key={t.id}>
-                <span className="title">{t.title}</span>
-                <span className={`due ${t.dueDate! < today ? 'overdue' : 'today'}`}>{t.dueDate! < today ? `Overdue · ${relativeDay(t.dueDate!)}` : 'Today'}</span>
-              </li>
+        <section className="dash-shop" aria-labelledby="shop-h">
+          <h2 id="shop-h" className="section-title">
+            Shopping
+          </h2>
+          {lists.length === 0 && <p className="empty">No lists yet.</p>}
+          <div className="shop-tiles">
+            {lists.map((l) => (
+              <Link key={l.id} to={`/shopping?list=${l.id}`} className="shop-tile">
+                <b>{l.uncheckedCount}</b>
+                <span>{l.name}</span>
+              </Link>
             ))}
-          </ul>
+          </div>
         </section>
       </div>
+
+      <QuickAdd />
     </>
+  )
+}
+
+interface DayProps {
+  date: string
+  events: Occurrence[]
+  plan: PlanEntry[]
+  slots: Slot[]
+  tasks: Task[]
+}
+
+function DayDetail({ date, events, plan, slots, tasks }: DayProps) {
+  const today = todayISO()
+  const people = usePersonMap()
+  const setDone = useSetTaskDone('mine')
+  const now = Date.now()
+  return (
+    <div className="day-detail">
+      {events.length === 0 && date === today && <p className="empty">Nothing on the calendar.</p>}
+      {events.length > 0 && (
+        <ul className="agenda">
+          {events.map((e) => (
+            <li key={`${e.id}-${e.occurrenceDate}`} className={!e.allDay && Date.parse(e.end) < now ? 'gone' : ''}>
+              <Link to="/calendar">
+                <span className="time">{e.allDay ? 'All day' : fmtTime(e.start)}</span>
+                <span className="colourbar" style={{ background: people.get(e.assignees[0])?.colour ?? 'var(--accent)' }} />
+                <span className="grow">
+                  {e.title}
+                  {e.location && <span className="sub">{e.location}</span>}
+                </span>
+                <Avatars ids={e.assignees} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="day-meals">
+        {slots.map((s) => (
+          <div className="plan-row" key={s}>
+            <span className="slot">{cap(s)}</span>
+            <MealInput date={date} slot={s} saved={plan.find((p) => p.slot === s)?.text} />
+          </div>
+        ))}
+      </div>
+
+      {tasks.length > 0 && (
+        <ul className="list day-tasks">
+          {tasks.map((t) => (
+            <li key={t.id}>
+              <input type="checkbox" checked={false} onChange={() => setDone(t, true)} aria-label={`Complete ${t.title}`} />
+              <span className="title">{t.title}</span>
+              {t.dueDate! < today && <span className="due overdue">{relativeDay(t.dueDate!)}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/** One line per day until tapped, when it opens up with the same detail as today. */
+function WeekRow({ open, onToggle, ...day }: DayProps & { open: boolean; onToggle: () => void }) {
+  const { date, events, plan } = day
+  const dinner = plan.find((p) => p.slot === 'dinner')?.text
+  return (
+    <li className={open ? 'open' : ''}>
+      <button type="button" className="week-row" aria-expanded={open} onClick={onToggle}>
+        <span className="day-badge">
+          <span>{fmtWeekday(date)}</span>
+          <b>{Number(date.slice(8))}</b>
+        </span>
+        <span className="grow week-summary">
+          <span className={events.length ? 'week-events' : 'week-events muted'}>
+            {events.length ? events.map((e) => (e.allDay ? e.title : `${e.title} ${fmtTime(e.start)}`)).join(' · ') : 'Nothing on'}
+          </span>
+          <span className="week-dinner">{dinner ?? 'No dinner planned'}</span>
+        </span>
+        <Icon name="down" size={18} />
+      </button>
+      {open && <DayDetail {...day} />}
+    </li>
   )
 }

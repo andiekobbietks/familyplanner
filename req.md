@@ -34,7 +34,7 @@ Explicitly out of scope for the first release:
 - Real-time collaboration (WebSockets or SignalR). Polling on focus is sufficient for v1.
 - Two-way sync with Google Calendar, Outlook or Apple Calendar. Displaying Google calendars read-only is in scope (Section 5.3.1); writing to them is not. A read-only ICS export feed from the planner is a v2 candidate.
 - Budgeting, chores with rewards, photo sharing. All possible later, none in v1.
-- Recipe import from websites, nutrition information, portion scaling. The meal planner in v1 is a plan plus a simple meal library, not a recipe manager.
+- Recipes in any form: a meal library, recipe import, ingredients, nutrition information, portion scaling. The meal planner is a plan of plain text, not a recipe manager.
 - Offline editing. The app should load its shell offline but does not need to queue writes.
 - Any AI features.
 - Integration with a home server (document storage, smart home). Planned for v2; Section 15 records what v1 does now to keep that door open.
@@ -73,13 +73,13 @@ Notes:
 
 ### 5.2 Home (dashboard)
 
-The landing page after login. Read-only summary, with links into each section.
+The landing page after login. It answers "what's happening today?" first and lets the common jobs be done in place.
 
-- Today's date and the next seven days of events, grouped by day, including events from any connected Google calendars (Section 5.3.1).
-- Count of unchecked shopping items per list, with a link to each list.
-- The current user's open tasks due today or overdue.
-- Today's lunch and dinner (and breakfast if enabled), with a link to the week's plan. An empty slot shows a "Plan lunch" or "Plan dinner" link. After 15:00 the dashboard also shows tomorrow's lunch, since packed lunches are prepared the evening before.
-- A quick-add bar at the top: type text, choose event / shopping / task, submit. Defaults to the most recently used type.
+- A greeting and today's date.
+- A Today card: today's events in time order (past ones dimmed), today's lunch and dinner (and breakfast if enabled) as editable fields, and the current user's open tasks due today or overdue, each completed with one tap.
+- The next six days, one line each: that day's events and dinner. Tapping a day opens it with the same detail as Today, so tomorrow's dinner can be planned without leaving the page. From 15:00 tomorrow is open by default, since packed lunches are prepared the evening before. Events include any connected Google calendars (Section 5.3.1).
+- A tile per shopping list with its unchecked count, linking to the list.
+- A floating add button in thumb reach opens a sheet: type text, choose shopping / to-do / event, submit. It stays open for adding several things and defaults to the most recently used type. Events are all-day, today unless another date is chosen.
 
 ### 5.3 Calendar
 
@@ -124,34 +124,16 @@ At minimum, the planner displays one or more existing Google calendars alongside
 
 ### 5.6 Meal planning
 
-A week-at-a-glance plan of what the family is eating, backed by a small library of meals the family actually cooks, with a one-tap way to get the ingredients onto the shopping list.
-
-**Plan**
+A week-at-a-glance plan of what the family is eating, as plain text.
 
 - The plan is a grid of days by slots. Lunch and Dinner are enabled by default. An admin can enable Breakfast in settings. Slots always display in the order Breakfast, Lunch, Dinner.
-- Views: the current week (Monday to Sunday) with previous and next week navigation. On a phone, a vertical list of days, each showing its Lunch and Dinner rows; on a larger screen, a seven-column grid with one row per slot.
-- Lunches are often simpler and repeated, so the meal picker for a Lunch cell shows meals tagged Lunch first and offers "Same as yesterday" as a one-tap option. A meal can carry both Lunch and Dinner tags.
-- Each cell holds zero or one entry. An entry is either a meal from the library or free text ("Leftovers", "Eating at Grandma's"). Free text is for one-offs and does not create a library meal.
-- Optionally, an entry has a cook (a member) and a note ("start the slow cooker at 2pm").
-- Drag and drop between cells on desktop. On a phone, tap a cell to pick a meal or type free text; a "move" action in the cell menu picks a target day.
+- Views: the current week (Monday to Sunday) with previous and next week navigation. On a phone, a vertical list of days, each showing its Lunch and Dinner rows; on a larger screen, seven columns.
+- Each cell holds zero or one line of free text ("Roast chicken", "Leftovers", "Eating at Grandma's"). Every cell is a text field: tap and type. Enter saves and moves to the next cell, leaving the field saves, Escape abandons the edit, and emptying a field clears the cell.
+- Drag and drop between cells on desktop. On a phone, a move button on a filled cell picks a target day. Moving onto a filled cell swaps the two.
 - "Copy last week" fills the current week from the previous one, skipping cells already filled.
+- Any member can plan.
 
-**Meal library**
-
-- A meal has: name (required), optional ingredients (a list of free-text lines such as "500 g mince"), optional link (URL to the recipe online), optional notes, optional tags (Lunch, Dinner, Quick, Veggie, Freezer, Kids' favourite, Packed lunch), and a computed "last planned" date.
-- Ingredient lines can be given a shopping category so they land in the right section of the list.
-- Picking a meal for a cell searches the library by name and tag, showing most-recently-planned first. Typing a name that does not exist offers "Create meal" inline.
-- Links open in a new tab with `rel="noopener noreferrer"`. Only `http` and `https` URLs are accepted (S13 applies).
-
-**Shopping integration**
-
-- On any planned meal, "Add ingredients to list" adds each ingredient line to a chosen shopping list (default: Groceries) as unchecked items. Lines that already exist unchecked on that list, matched case-insensitively by name, are skipped and reported in the toast ("Added 6, skipped 2 already on the list").
-- On the week view, "Shop this week" does the same for every planned meal in every slot for the week in one action, with a confirmation showing the item count first.
-- Items added this way record the meal name in the item note so it is clear why they are on the list.
-
-**Permissions**
-
-- Any member can plan, create meals and add ingredients. Deleting a meal from the library is admin-only; it does not remove past plan entries, which keep the meal name as free text.
+Cells saved while the app had a meal library hold a `mealId` rather than text. The API returns the name of the old meal as their text and they become ordinary text when edited or copied. The old `meal` documents stay in the database, read-only, and appear in the export.
 
 ### 5.7 Members and settings (admin only)
 
@@ -159,7 +141,7 @@ A week-at-a-glance plan of what the family is eating, backed by a small library 
 - Invite a new member: email and role. They then sign in with that email.
 - Remove a member. Their historical actions remain attributed by display name.
 - Each member can set their own display name and colour.
-- Meal plan settings: whether Breakfast is enabled (Lunch and Dinner are always on) and the default shopping list for ingredients.
+- Planning settings: whether Breakfast is enabled (Lunch and Dinner are always on) and the default shopping list for quick add.
 - "Export all data" downloads a single JSON file containing every record. This doubles as the manual backup mechanism.
 
 ---
@@ -188,7 +170,7 @@ Design points:
 - **Client** is a single-page app. All data access goes through `/api/*`. The client never talks to Cosmos DB directly and holds no secrets.
 - **API** is a small set of HTTP-triggered functions. Every handler follows the same pattern: resolve the caller, check role, validate body with a schema, perform the operation, return JSON.
 - **Caller resolution is one function.** `getCaller(req)` reads `x-ms-client-principal` and returns `{ memberId, role, familyId }`. Handlers never read the header themselves. In v2 this same function can accept a service credential for the home server without touching any handler.
-- **Database** is one Cosmos DB container with partition key `/familyId` and a `type` field discriminating documents (`event`, `list`, `item`, `task`, `meal`, `plan`, `member`). One family means one hot partition, which is fine at this scale.
+- **Database** is one Cosmos DB container with partition key `/familyId` and a `type` field discriminating documents (`event`, `list`, `item`, `task`, `plan`, `member`). One family means one hot partition, which is fine at this scale.
 - **Configuration** lives in SWA application settings: the database endpoint and names, the service principal's tenant, client id and secret (S18), and any Google calendar feed addresses (S30).
 
 ### 6.1 Cost estimate
@@ -299,12 +281,7 @@ item     { listId, name, note?, category?, checked: bool, checkedAt?, checkedBy?
 
 task     { title, dueDate?, assignee?, notes?, done: bool, completedAt?, completedBy? }
 
-meal     { name, ingredients: [{ text, category? }], link?, notes?, tags: [string],
-           lastPlannedAt?, archived: bool }
-
-plan     { date: "YYYY-MM-DD", slot: "breakfast"|"lunch"|"dinner",
-           mealId?, text?,          // exactly one of mealId or text is set
-           cook?: memberId, note? }
+plan     { date: "YYYY-MM-DD", slot: "breakfast"|"lunch"|"dinner", text }
 ```
 
 Plan entries are keyed so that `(familyId, date, slot)` is unique. Settings that are family-wide (enabled meal slots, default shopping list) live on a single `settings` document with `id = "settings"`.
@@ -336,15 +313,10 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | POST | `/tasks` | Create task |
 | PATCH | `/tasks/{id}` | Update or complete task |
 | DELETE | `/tasks/{id}` | Delete task |
-| GET | `/meals?q=&tag=` | Meal library, most recently planned first |
-| POST | `/meals` | Create meal |
-| PATCH | `/meals/{id}` | Update meal |
-| DELETE | `/meals/{id}` | Archive meal (admin) |
 | GET | `/plan?week=YYYY-MM-DD` | Plan entries for the week starting on that Monday |
 | PUT | `/plan/{date}/{slot}` | Set or replace a cell |
 | DELETE | `/plan/{date}/{slot}` | Clear a cell |
 | POST | `/plan/copy-week` | Copy previous week into the given week (`{ "week": "YYYY-MM-DD" }`) |
-| POST | `/plan/shop` | Add ingredients to a list (`{ "listId", "mealIds" | "week" }`), returns added and skipped counts |
 | GET | `/settings` | Family-wide settings |
 | PATCH | `/settings` | Update settings (admin) |
 | GET | `/members` | Members (admin) |
@@ -390,10 +362,10 @@ Each of these should be demonstrable before v1 is called done.
 - A8. A weekly recurring event created on a Monday appears on the next eight Mondays in the month view, and deleting one occurrence leaves the others.
 - A9. An all-day event on the day the clocks change displays on the correct day.
 - A9d. With a Google calendar connected, a weekly timed event and an all-day event from it appear on the correct days in the month view and dashboard, marked as Google events with no edit or delete controls. No browser request goes to a Google domain, and the feed address appears in no API response or log line. With the feed address made invalid, the planner's own events still display and the calendar shows "Google calendar unavailable".
-- A9a. Plan "Spaghetti bolognese" for Wednesday dinner, tap "Add ingredients to list" with two of its five ingredients already unchecked on Groceries. Groceries gains exactly three items, each with the meal name in its note, and the toast reports "Added 3, skipped 2".
+- A9a. On a phone, type a meal into an empty cell and press Enter. Focus moves to the next cell and the meal is still there after a reload. Emptying the cell clears it.
 - A9b. Wednesday's lunch and dinner appear on the dashboard on Wednesday and not on Tuesday. At 16:00 on Tuesday the dashboard also shows Wednesday's lunch. On a phone the week view shows seven days, each with both slots, without horizontal scrolling.
 - A9c. "Copy last week" onto a week that already has Friday filled leaves Friday untouched and fills the other six days.
-- A10. Export downloads a JSON file that contains every event, list, item, task, meal, plan entry and member.
+- A10. Export downloads a JSON file that contains every event, list, item, task, plan entry and member.
 
 **Security and operations**
 - A11. Response headers on the home page include CSP, nosniff, frame options and referrer policy as specified.
@@ -426,7 +398,7 @@ Decide these before building. Defaults are stated so work can proceed without th
 2. **Shopping lists (week 2).** Full lists and items feature, polling, mobile layout. A6, A7.
 3. **To-dos (week 3).** Tasks feature and dashboard. A12, A13.
 4. **Calendar (weeks 4 and 5).** Views, events, recurrence, Google calendar display. A8, A9, A9d.
-5. **Meal planning (week 6).** Meal library, week plan, dashboard tie-in, ingredients to shopping list. A9a to A9c.
+5. **Meal planning (week 6).** Week plan and dashboard tie-in. A9a to A9c.
 6. **Admin and hardening (week 7).** Members page, settings, invitations, export, headers, logging, budget alert, Lighthouse. Remaining acceptance criteria.
 
 ---

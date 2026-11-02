@@ -2,12 +2,35 @@ import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { mutations, useMe, useTasks } from '../api/hooks'
 import type { Task } from '../api/types'
+import { Icon } from '../components/Icons'
 import { Modal } from '../components/Modal'
 import { Avatar, PersonChips, usePersonMap } from '../components/People'
 import { useToast } from '../components/Toast'
 import { fmtDay, relativeDay, todayISO } from '../lib/dates'
 
 type View = 'mine' | 'all' | 'done'
+
+/** One tap completes; the toast offers undo for five seconds (section 5.5). */
+export function useSetTaskDone(view: View) {
+  const qc = useQueryClient()
+  const toast = useToast()
+  const invalidate = () => void qc.invalidateQueries({ queryKey: ['tasks'] })
+  return async (task: Task, done: boolean) => {
+    qc.setQueryData<Task[]>(['tasks', view], (old) => old?.filter((t) => t.id !== task.id))
+    await mutations.patchTask(task.id, { done })
+    invalidate()
+    toast(done ? `Done: ${task.title}` : `Reopened: ${task.title}`, {
+      duration: 5000,
+      action: {
+        label: 'Undo',
+        onClick: async () => {
+          await mutations.patchTask(task.id, { done: !done })
+          invalidate()
+        },
+      },
+    })
+  }
+}
 
 export function Todos() {
   const [view, setView] = useState<View>('mine')
@@ -16,6 +39,7 @@ export function Todos() {
   const people = usePersonMap()
   const qc = useQueryClient()
   const toast = useToast()
+  const setDone = useSetTaskDone(view)
   const [title, setTitle] = useState('')
   const [more, setMore] = useState(false)
   const [due, setDue] = useState('')
@@ -38,23 +62,6 @@ export function Todos() {
     }
   }
 
-  /** One tap completes; the toast offers undo for five seconds (section 5.5). */
-  const setDone = async (task: Task, done: boolean) => {
-    qc.setQueryData<Task[]>(['tasks', view], (old) => old?.filter((t) => t.id !== task.id))
-    await mutations.patchTask(task.id, { done })
-    invalidate()
-    toast(done ? `Done: ${task.title}` : `Reopened: ${task.title}`, {
-      duration: 5000,
-      action: {
-        label: 'Undo',
-        onClick: async () => {
-          await mutations.patchTask(task.id, { done: !done })
-          invalidate()
-        },
-      },
-    })
-  }
-
   return (
     <>
       <h1>To-dos</h1>
@@ -70,8 +77,8 @@ export function Todos() {
         <form className="card" onSubmit={add}>
           <div className="row">
             <input type="text" aria-label="New to-do" placeholder="Add a to-do…" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} enterKeyHint="done" />
-            <button className="btn" type="button" aria-expanded={more} onClick={() => setMore((m) => !m)} aria-label="More options">
-              {more ? '▴' : '▾'}
+            <button className={`icon-btn boxed flip ${more ? 'on' : ''}`} type="button" aria-expanded={more} onClick={() => setMore((m) => !m)} aria-label="Due date and person">
+              <Icon name="down" />
             </button>
             <button className="btn primary" type="submit" disabled={!title.trim()}>
               Add

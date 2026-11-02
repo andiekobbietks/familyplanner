@@ -4,8 +4,6 @@ export type Slot = 'breakfast' | 'lunch' | 'dinner'
 export const SLOTS: Slot[] = ['breakfast', 'lunch', 'dinner']
 export const CATEGORIES = ['Produce', 'Dairy', 'Bakery', 'Household', 'Other'] as const
 export type Category = (typeof CATEGORIES)[number]
-export const MEAL_TAGS = ['Lunch', 'Dinner', 'Quick', 'Veggie', 'Freezer', "Kids' favourite", 'Packed lunch'] as const
-export type MealTag = (typeof MEAL_TAGS)[number]
 
 export interface BaseDoc {
   id: string
@@ -78,30 +76,19 @@ export interface Task extends BaseDoc {
   completedBy?: string | null
 }
 
-export interface Ingredient {
-  text: string
-  category?: Category
-}
-
+/** Left over from the removed meal library. Read only, so older plan cells keep their names. */
 export interface Meal extends BaseDoc {
   type: 'meal'
   name: string
-  ingredients: Ingredient[]
-  link?: string
-  notes?: string
-  tags: MealTag[]
-  lastPlannedAt?: string
-  archived: boolean
 }
 
 export interface PlanEntry extends BaseDoc {
   type: 'plan'
   date: string
   slot: Slot
-  mealId?: string
   text?: string
-  cook?: string
-  note?: string
+  /** Older cells only. New cells always hold text. */
+  mealId?: string
 }
 
 export interface Settings extends BaseDoc {

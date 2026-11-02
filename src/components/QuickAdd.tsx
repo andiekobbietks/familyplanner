@@ -1,14 +1,32 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { mutations, useLists, useMe, useSettings } from '../api/hooks'
-import { localTz, todayISO } from '../lib/dates'
-import { useToast } from './Toast'
+import { fmtDay, localTz, todayISO } from '../lib/dates'
+import { Icon } from './Icons'
+import { Modal } from './Modal'
 
-type Kind = 'event' | 'shopping' | 'task'
+type Kind = 'shopping' | 'task' | 'event'
 const KEY = 'fp.quickadd.kind'
+const KINDS: { kind: Kind; label: string; placeholder: string }[] = [
+  { kind: 'shopping', label: 'Shopping', placeholder: 'Milk, bin bags…' },
+  { kind: 'task', label: 'To-do', placeholder: 'Book the dentist…' },
+  { kind: 'event', label: 'Event', placeholder: 'Swimming, bins out…' },
+]
 
-/** Type text, choose a type, submit. Remembers the last type used (section 5.2). */
+/** A button in thumb reach that opens a sheet. Stays open after adding, because shopping items tend to come in runs. Remembers the last type used (section 5.2). */
 export function QuickAdd() {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" className="fab" aria-label="Add something" onClick={() => setOpen(true)}>
+        <Icon name="plus" size={26} />
+      </button>
+      {open && <QuickAddSheet onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
+function QuickAddSheet({ onClose }: { onClose: () => void }) {
   const [kind, setKind] = useState<Kind>(() => {
     try {
       return (localStorage.getItem(KEY) as Kind) || 'shopping'
@@ -17,15 +35,20 @@ export function QuickAdd() {
     }
   })
   const [text, setText] = useState('')
+  const [date, setDate] = useState(todayISO())
   const [busy, setBusy] = useState(false)
+  // The sheet sits above toasts, so results are reported inside it.
+  const [status, setStatus] = useState('')
+  const input = useRef<HTMLInputElement>(null)
   const { data: lists } = useLists()
   const { data: settings } = useSettings()
   const { data: me } = useMe()
   const qc = useQueryClient()
-  const toast = useToast()
 
   const choose = (k: Kind) => {
     setKind(k)
+    setStatus('')
+    input.current?.focus()
     try {
       localStorage.setItem(KEY, k)
     } catch {
@@ -45,43 +68,51 @@ export function QuickAdd() {
         await mutations.addItem(listId, { name: title })
         void qc.invalidateQueries({ queryKey: ['lists'] })
         void qc.invalidateQueries({ queryKey: ['items'] })
-        toast(`Added "${title}" to ${lists?.find((l) => l.id === listId)?.name ?? 'the list'}`)
+        setStatus(`Added ${title} to ${lists?.find((l) => l.id === listId)?.name ?? 'the list'}`)
       } else if (kind === 'task') {
         await mutations.createTask({ title, assignee: me?.id })
         void qc.invalidateQueries({ queryKey: ['tasks'] })
-        toast(`Task added: ${title}`)
+        setStatus(`To-do added: ${title}`)
       } else {
-        const today = todayISO()
-        await mutations.createEvent({ title, allDay: true, start: today, end: today, tz: localTz(), assignees: me ? [me.id] : [] })
+        await mutations.createEvent({ title, allDay: true, start: date, end: date, tz: localTz(), assignees: me ? [me.id] : [] })
         void qc.invalidateQueries({ queryKey: ['events'] })
-        toast(`Event added today: ${title}`)
+        setStatus(`${title} added for ${fmtDay(date)}`)
       }
       setText('')
     } catch (err) {
-      toast((err as Error).message)
+      setStatus((err as Error).message)
     } finally {
       setBusy(false)
+      input.current?.focus()
     }
   }
 
   return (
-    <form className="quickadd" onSubmit={submit}>
-      <input
-        type="text"
-        aria-label="Quick add"
-        placeholder={kind === 'shopping' ? 'Add to shopping…' : kind === 'task' ? 'Add a to-do…' : 'Add an event for today…'}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        maxLength={200}
-      />
-      <select aria-label="Type" value={kind} onChange={(e) => choose(e.target.value as Kind)}>
-        <option value="shopping">Shopping</option>
-        <option value="task">To-do</option>
-        <option value="event">Event</option>
-      </select>
-      <button className="btn primary" type="submit" disabled={busy || !text.trim()}>
-        Add
-      </button>
-    </form>
+    <Modal title="Add" onClose={onClose}>
+      <form onSubmit={submit}>
+        <div className="seg" role="group" aria-label="Type">
+          {KINDS.map((k) => (
+            <button key={k.kind} type="button" aria-pressed={kind === k.kind} onClick={() => choose(k.kind)}>
+              {k.label}
+            </button>
+          ))}
+        </div>
+        <div className="row">
+          <input ref={input} data-autofocus type="text" aria-label="What to add" placeholder={KINDS.find((k) => k.kind === kind)!.placeholder} value={text} onChange={(e) => setText(e.target.value)} maxLength={200} autoComplete="off" enterKeyHint="done" />
+          <button className="btn primary" type="submit" disabled={busy || !text.trim()}>
+            Add
+          </button>
+        </div>
+        {kind === 'event' && (
+          <label className="field quick-date">
+            <span>All day on</span>
+            <input type="date" value={date} required onChange={(e) => setDate(e.target.value || todayISO())} />
+          </label>
+        )}
+        <p className="quick-status small" role="status">
+          {status}
+        </p>
+      </form>
+    </Modal>
   )
 }

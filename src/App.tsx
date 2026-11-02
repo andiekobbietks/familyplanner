@@ -4,7 +4,6 @@ import { Layout } from './components/Layout'
 import { Calendar } from './pages/Calendar'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
-import { MealLibrary } from './pages/MealLibrary'
 import { MealPlan } from './pages/MealPlan'
 import { Members } from './pages/Members'
 import { NotAMember } from './pages/NotAMember'
@@ -37,7 +36,6 @@ export default function App() {
         <Route path="/shopping" element={<Shopping />} />
         <Route path="/todos" element={<Todos />} />
         <Route path="/meals" element={<MealPlan />} />
-        <Route path="/meals/library" element={<MealLibrary />} />
         <Route path="/profile" element={<Profile />} />
         <Route
           path="/members"

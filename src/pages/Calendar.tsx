@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { mutations, useEvents, usePeople } from '../api/hooks'
 import type { EventInput, Occurrence, Recurrence } from '../api/types'
+import { Icon } from '../components/Icons'
 import { Modal } from '../components/Modal'
 import { Avatars, PersonChips, usePersonMap } from '../components/People'
 import { useToast } from '../components/Toast'
@@ -56,39 +57,50 @@ export function Calendar() {
     else setAnchor(addDays(anchor, 30 * n))
   }
 
+  /** Month cells are too small to tap an event on a phone, so a day opens its list there. */
+  const openDay = (d: string) => {
+    if (isPhone()) {
+      setAnchor(d)
+      setView('agenda')
+    } else setEditing({ date: d })
+  }
+
   const heading = view === 'month' ? fmtMonth(anchor) : view === 'week' ? `Week of ${fmtDay(mondayOf(anchor))}` : anchor === today ? 'Upcoming' : `From ${fmtDay(anchor)}`
 
   return (
     <>
-      <div className="cal-head">
-        <h1>{heading}</h1>
-        <button className="btn sm" type="button" onClick={() => step(-1)} aria-label="Previous">
-          ‹
+      <div className="page-head">
+        <h1 className="grow">{heading}</h1>
+        <button className="icon-btn boxed" type="button" onClick={() => step(-1)} aria-label="Previous">
+          <Icon name="left" />
         </button>
         <button className="btn sm" type="button" onClick={() => setAnchor(today)}>
           Today
         </button>
-        <button className="btn sm" type="button" onClick={() => step(1)} aria-label="Next">
-          ›
-        </button>
-        <select aria-label="View" value={view} onChange={(e) => setView(e.target.value as View)} style={{ width: 'auto', minHeight: 36 }}>
-          <option value="agenda">Agenda</option>
-          <option value="week">Week</option>
-          <option value="month">Month</option>
-        </select>
-        <button className="btn primary sm" type="button" onClick={() => setEditing({ date: today })}>
-          + Event
+        <button className="icon-btn boxed" type="button" onClick={() => step(1)} aria-label="Next">
+          <Icon name="right" />
         </button>
       </div>
-      <div className="row wrap" style={{ marginBottom: '0.75rem' }}>
-        <span className="small muted">Show:</span>
+      <div className="cal-tools">
+        <div className="seg grow" role="group" aria-label="View">
+          {(['agenda', 'week', 'month'] as View[]).map((v) => (
+            <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}>
+              {v[0].toUpperCase() + v.slice(1)}
+            </button>
+          ))}
+        </div>
+        <button className="btn primary sm" type="button" onClick={() => setEditing({ date: anchor })}>
+          New event
+        </button>
+      </div>
+      <div className="filter-row">
         <button type="button" className={`chip ${filter.length === 0 ? 'on' : ''}`} onClick={() => setFilter([])}>
           Everyone
         </button>
         <PersonChips value={filter} onChange={setFilter} />
       </div>
 
-      {view === 'month' && <MonthGrid anchor={anchor} byDay={byDay} today={today} colourOf={colourOf} onPick={(occ) => setEditing({ occ })} onDay={(d) => setEditing({ date: d })} />}
+      {view === 'month' && <MonthGrid anchor={anchor} byDay={byDay} today={today} colourOf={colourOf} onPick={(occ) => setEditing({ occ })} onDay={openDay} />}
       {view === 'week' && <WeekGrid monday={mondayOf(anchor)} byDay={byDay} today={today} colourOf={colourOf} onPick={(occ) => setEditing({ occ })} onDay={(d) => setEditing({ date: d })} />}
       {view === 'agenda' && <Agenda byDay={byDay} colourOf={colourOf} onPick={(occ) => setEditing({ occ })} />}
 
@@ -110,7 +122,7 @@ function EventChip({ e, colour, onPick }: { e: Occurrence; colour: string; onPic
     <button
       type="button"
       className={`evt ${e.allDay ? '' : 'timed'}`}
-      style={e.allDay ? { background: colour } : { borderLeftColor: colour }}
+      style={{ '--c': colour } as CSSProperties}
       onClick={(ev) => {
         ev.stopPropagation()
         onPick(e)
@@ -293,7 +305,7 @@ function EventEditor({ occ, date, onClose }: { occ?: Occurrence; date?: string; 
     >
       <label className="field">
         <span>Title</span>
-        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} autoFocus={!occ} />
+        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} data-autofocus={occ ? undefined : true} />
       </label>
       <label className="check">
         <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} /> All day

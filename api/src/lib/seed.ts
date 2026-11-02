@@ -1,6 +1,6 @@
 import { PALETTE } from './caller'
 import { addDays, mondayOf } from './dates'
-import type { BaseDoc, Event, Item, List, Meal, Member, PlanEntry, Settings, Task } from './types'
+import type { BaseDoc, Event, Item, List, Member, PlanEntry, Settings, Task } from './types'
 
 /**
  * Sample household for local development. Only used when the memory store
@@ -63,28 +63,17 @@ export function seed(familyId: string): BaseDoc[] {
     { ...base('e-6', 'event'), title: 'Half term', allDay: true, start: addDays(monday, 14), end: addDays(monday, 18), tz: 'Europe/London', assignees: ['m-charlie', 'm-robin'] },
   ]
 
-  const meals: Meal[] = [
-    { ...base('meal-1', 'meal'), name: 'Spaghetti bolognese', ingredients: [{ text: '500 g mince' }, { text: 'Onion', category: 'Produce' }, { text: 'Tinned tomatoes' }, { text: 'Spaghetti' }, { text: 'Parmesan', category: 'Dairy' }], tags: ['Dinner', "Kids' favourite"], archived: false, lastPlannedAt: addDays(today, -6) },
-    { ...base('meal-2', 'meal'), name: 'Fish finger sandwiches', ingredients: [{ text: 'Fish fingers' }, { text: 'Bread rolls', category: 'Bakery' }, { text: 'Lettuce', category: 'Produce' }], tags: ['Dinner', 'Quick', "Kids' favourite"], archived: false, lastPlannedAt: addDays(today, -3) },
-    { ...base('meal-3', 'meal'), name: 'Veggie chilli', ingredients: [{ text: 'Kidney beans' }, { text: 'Peppers', category: 'Produce' }, { text: 'Rice' }, { text: 'Onion', category: 'Produce' }], tags: ['Dinner', 'Veggie', 'Freezer'], archived: false, link: 'https://www.bbcgoodfood.com/recipes/veggie-chilli' },
-    { ...base('meal-4', 'meal'), name: 'Jacket potatoes', ingredients: [{ text: 'Baking potatoes', category: 'Produce' }, { text: 'Cheddar', category: 'Dairy' }, { text: 'Baked beans' }], tags: ['Lunch', 'Dinner', 'Quick', 'Veggie'], archived: false },
-    { ...base('meal-5', 'meal'), name: 'Cheese sandwiches', ingredients: [{ text: 'Bread', category: 'Bakery' }, { text: 'Cheddar', category: 'Dairy' }, { text: 'Cucumber', category: 'Produce' }], tags: ['Lunch', 'Packed lunch', 'Quick'], archived: false, lastPlannedAt: addDays(today, -1) },
-    { ...base('meal-6', 'meal'), name: 'Soup and bread', ingredients: [{ text: 'Tomato soup' }, { text: 'Crusty bread', category: 'Bakery' }], tags: ['Lunch', 'Quick', 'Veggie'], archived: false },
-    { ...base('meal-7', 'meal'), name: 'Roast chicken', ingredients: [{ text: 'Whole chicken' }, { text: 'Potatoes', category: 'Produce' }, { text: 'Carrots', category: 'Produce' }, { text: 'Broccoli', category: 'Produce' }, { text: 'Gravy granules' }], tags: ['Dinner'], archived: false, notes: 'Start by 3pm for 5pm dinner' },
-    { ...base('meal-8', 'meal'), name: 'Pasta pesto', ingredients: [{ text: 'Pasta' }, { text: 'Pesto' }, { text: 'Cherry tomatoes', category: 'Produce' }], tags: ['Lunch', 'Dinner', 'Quick', 'Veggie', "Kids' favourite"], archived: false },
-  ]
-
   const plan: PlanEntry[] = [
-    { ...base(`plan:${monday}:dinner`, 'plan'), date: monday, slot: 'dinner', mealId: 'meal-2' },
-    { ...base(`plan:${addDays(monday, 1)}:lunch`, 'plan'), date: addDays(monday, 1), slot: 'lunch', mealId: 'meal-5' },
-    { ...base(`plan:${addDays(monday, 1)}:dinner`, 'plan'), date: addDays(monday, 1), slot: 'dinner', mealId: 'meal-3', cook: 'm-jo' },
-    { ...base(`plan:${addDays(monday, 2)}:dinner`, 'plan'), date: addDays(monday, 2), slot: 'dinner', mealId: 'meal-1', cook: 'm-tim', note: 'Double batch for the freezer' },
-    { ...base(`plan:${addDays(monday, 3)}:lunch`, 'plan'), date: addDays(monday, 3), slot: 'lunch', mealId: 'meal-6' },
+    { ...base(`plan:${monday}:dinner`, 'plan'), date: monday, slot: 'dinner', text: 'Fish finger sandwiches' },
+    { ...base(`plan:${addDays(monday, 1)}:lunch`, 'plan'), date: addDays(monday, 1), slot: 'lunch', text: 'Cheese sandwiches' },
+    { ...base(`plan:${addDays(monday, 1)}:dinner`, 'plan'), date: addDays(monday, 1), slot: 'dinner', text: 'Veggie chilli' },
+    { ...base(`plan:${addDays(monday, 2)}:dinner`, 'plan'), date: addDays(monday, 2), slot: 'dinner', text: 'Spaghetti bolognese' },
+    { ...base(`plan:${addDays(monday, 3)}:lunch`, 'plan'), date: addDays(monday, 3), slot: 'lunch', text: 'Soup and bread' },
     { ...base(`plan:${addDays(monday, 4)}:dinner`, 'plan'), date: addDays(monday, 4), slot: 'dinner', text: 'Takeaway' },
-    { ...base(`plan:${addDays(monday, 6)}:dinner`, 'plan'), date: addDays(monday, 6), slot: 'dinner', mealId: 'meal-7', cook: 'm-tim' },
+    { ...base(`plan:${addDays(monday, 6)}:dinner`, 'plan'), date: addDays(monday, 6), slot: 'dinner', text: 'Roast chicken' },
   ]
 
   const settings: Settings = { ...base('settings', 'settings'), id: 'settings', breakfastEnabled: false, defaultListId: 'l-groceries' }
 
-  return [...members, ...lists, ...items, ...tasks, ...events, ...meals, ...plan, settings]
+  return [...members, ...lists, ...items, ...tasks, ...events, ...plan, settings]
 }

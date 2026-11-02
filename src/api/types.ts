@@ -4,8 +4,6 @@ export type Slot = 'breakfast' | 'lunch' | 'dinner'
 export const SLOTS: Slot[] = ['breakfast', 'lunch', 'dinner']
 export const CATEGORIES = ['Produce', 'Dairy', 'Bakery', 'Household', 'Other'] as const
 export type Category = (typeof CATEGORIES)[number]
-export const MEAL_TAGS = ['Lunch', 'Dinner', 'Quick', 'Veggie', 'Freezer', "Kids' favourite", 'Packed lunch'] as const
-export type MealTag = (typeof MEAL_TAGS)[number]
 
 export interface Person {
   id: string
@@ -72,28 +70,11 @@ export interface Task {
   createdBy: string
 }
 
-export interface Ingredient {
-  text: string
-  category?: Category
-}
-export interface Meal {
-  id: string
-  name: string
-  ingredients: Ingredient[]
-  link?: string
-  notes?: string
-  tags: MealTag[]
-  lastPlannedAt?: string
-}
 export interface PlanEntry {
   id: string
   date: string
   slot: Slot
-  mealId?: string
-  mealName?: string
-  text?: string
-  cook?: string
-  note?: string
+  text: string
 }
 export interface Settings {
   breakfastEnabled: boolean

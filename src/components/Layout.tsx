@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useMe } from '../api/hooks'
+import { Icon, type IconName } from './Icons'
 import { Avatar } from './People'
 
-const NAV = [
-  { to: '/', label: 'Home', icon: '⌂' },
-  { to: '/calendar', label: 'Calendar', icon: '▦' },
-  { to: '/shopping', label: 'Shopping', icon: '🛒' },
-  { to: '/todos', label: 'To-dos', icon: '✓' },
-  { to: '/meals', label: 'Meals', icon: '🍽' },
+const NAV: { to: string; label: string; icon: IconName }[] = [
+  { to: '/', label: 'Home', icon: 'home' },
+  { to: '/calendar', label: 'Calendar', icon: 'calendar' },
+  { to: '/meals', label: 'Meals', icon: 'meals' },
+  { to: '/shopping', label: 'Shopping', icon: 'basket' },
+  { to: '/todos', label: 'To-dos', icon: 'check' },
 ]
 
 export function Layout() {
@@ -19,6 +20,7 @@ export function Layout() {
     <div className="app">
       <header className="topbar">
         <NavLink to="/" className="brand">
+          <img src="/icons/icon.svg" alt="" width={26} height={26} />
           FamilyPlanner
         </NavLink>
         <nav className="topnav" aria-label="Sections">
@@ -29,8 +31,8 @@ export function Layout() {
           ))}
         </nav>
         <div className="menu-wrap">
-          <button type="button" className="menu-btn" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>
-            <Avatar person={me} size={28} />
+          <button type="button" className="menu-btn" aria-haspopup="menu" aria-expanded={menu} aria-label="Account menu" onClick={() => setMenu((m) => !m)}>
+            <Avatar person={me} size={32} />
             <span className="menu-name">{me?.displayName ?? '…'}</span>
           </button>
           {menu && (
@@ -63,8 +65,8 @@ export function Layout() {
       <nav className="tabbar" aria-label="Sections">
         {NAV.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'}>
-            <span className="tab-icon" aria-hidden>
-              {n.icon}
+            <span className="tab-icon">
+              <Icon name={n.icon} />
             </span>
             {n.label}
           </NavLink>

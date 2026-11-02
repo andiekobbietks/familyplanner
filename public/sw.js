@@ -1,5 +1,5 @@
 /* App-shell cache only. API responses and auth are never cached (section 8). */
-const CACHE = 'familyplanner-shell-v1'
+const CACHE = 'familyplanner-shell-v2'
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg']
 
 self.addEventListener('install', (e) => {

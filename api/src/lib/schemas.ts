@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { isValidDate, isValidInstant } from './dates'
-import { CATEGORIES, MEAL_TAGS } from './types'
+import { CATEGORIES } from './types'
 
 /**
  * Every request body passes through one of these before use (S13). Zod's
@@ -12,13 +12,6 @@ const short = z.string().trim().max(200)
 const long = z.string().trim().max(2000)
 const id = z.string().min(1).max(64)
 const dateStr = z.string().refine(isValidDate, 'Expected YYYY-MM-DD')
-const httpUrl = z
-  .string()
-  .trim()
-  .max(2000)
-  .url()
-  .refine((u) => /^https?:\/\//i.test(u), 'Only http and https links are allowed')
-
 export const recurrenceSchema = z.object({
   freq: z.enum(['daily', 'weekly', 'monthly']),
   interval: z.number().int().min(1).max(52).default(1),
@@ -62,31 +55,12 @@ export const taskSchema = z.object({
 })
 export const taskPatchSchema = taskSchema.partial().extend({ done: z.boolean().optional() })
 
-export const mealSchema = z.object({
-  name: title,
-  ingredients: z.array(z.object({ text: short.min(1), category: z.enum(CATEGORIES).optional() })).max(100).default([]),
-  link: httpUrl.optional().or(z.literal('')),
-  notes: long.optional(),
-  tags: z.array(z.enum(MEAL_TAGS)).max(10).default([]),
-})
-export const mealPatchSchema = mealSchema.partial()
-
-export const planCellSchema = z
-  .object({
-    mealId: id.optional(),
-    text: short.optional(),
-    cook: id.nullable().optional(),
-    note: short.optional(),
-  })
-  .refine((c) => (c.mealId ? !c.text : !!c.text?.trim()), 'Exactly one of mealId or text is required')
+export const planCellSchema = z.object({ text: title })
 
 export const slotSchema = z.enum(['breakfast', 'lunch', 'dinner'])
 export const dateSchema = dateStr
 
 export const copyWeekSchema = z.object({ week: dateStr })
-export const shopSchema = z
-  .object({ listId: id, mealIds: z.array(id).max(100).optional(), week: dateStr.optional() })
-  .refine((s) => !!s.mealIds !== !!s.week, 'Provide mealIds or week')
 
 export const settingsPatchSchema = z.object({
   breakfastEnabled: z.boolean().optional(),

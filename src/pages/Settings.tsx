@@ -27,13 +27,13 @@ export function Settings() {
     <>
       <h1>Settings</h1>
       <div className="card">
-        <h2>Meal plan</h2>
+        <h2>Planning</h2>
         <label className="check">
           <input type="checkbox" checked={!!settings?.breakfastEnabled} onChange={async (e) => (await mutations.patchSettings({ breakfastEnabled: e.target.checked }), invalidate())} />
           Plan breakfast as well as lunch and dinner
         </label>
         <label className="field">
-          <span>Default shopping list for ingredients</span>
+          <span>Default shopping list for quick add</span>
           <select value={settings?.defaultListId ?? ''} onChange={async (e) => (await mutations.patchSettings({ defaultListId: e.target.value || null }), invalidate())}>
             <option value="">First list</option>
             {lists.map((l) => (
@@ -55,7 +55,7 @@ export function Settings() {
 
       <div className="card">
         <h2 className="danger">Delete everything</h2>
-        <p className="muted small">Removes every event, list, task, meal, plan and member for this family. Export first. Type DELETE to enable the button.</p>
+        <p className="muted small">Removes every event, list, task, plan and member for this family. Export first. Type DELETE to enable the button.</p>
         <div className="row">
           <input type="text" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="DELETE" aria-label="Type DELETE to confirm" style={{ maxWidth: 200 }} />
           <button

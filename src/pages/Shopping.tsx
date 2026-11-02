@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { mutations, useItems, useLists, useMe } from '../api/hooks'
 import { CATEGORIES, type Category, type Item } from '../api/types'
+import { Icon } from '../components/Icons'
 import { Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
 
@@ -102,11 +103,16 @@ export function Shopping() {
     <>
       <div className="row between">
         <h1>Shopping</h1>
-        {me?.role === 'admin' && (
-          <button className="btn sm" type="button" onClick={() => setNewList(true)}>
-            + New list
+        <div className="row">
+          <button className="btn sm" type="button" onClick={copy} disabled={!items.some((i) => !i.checked)}>
+            Copy list
           </button>
-        )}
+          {me?.role === 'admin' && (
+            <button className="btn sm" type="button" onClick={() => setNewList(true)}>
+              New list
+            </button>
+          )}
+        </div>
       </div>
       <div className="listtabs" role="tablist">
         {(lists ?? []).map((l) => (
@@ -129,26 +135,6 @@ export function Shopping() {
               Add
             </button>
           </form>
-          <div className="row wrap" style={{ marginTop: '0.75rem' }}>
-            <button className="btn sm" type="button" onClick={copy} disabled={!items.some((i) => !i.checked)}>
-              Copy list
-            </button>
-            {me?.role === 'admin' && (
-              <button
-                className="btn sm danger"
-                type="button"
-                onClick={async () => {
-                  if (!confirm(`Delete the list "${list.name}" and everything on it?`)) return
-                  await mutations.deleteList(list.id)
-                  setParams({})
-                  invalidate()
-                }}
-              >
-                Delete list
-              </button>
-            )}
-          </div>
-
           {isLoading && <p className="loading">Loading…</p>}
           {isError && <p className="empty">Could not load this list. It will retry shortly.</p>}
           {!isLoading && !isError && grouped.length === 0 && <p className="empty">Nothing to buy. Add something above.</p>}
@@ -176,6 +162,20 @@ export function Shopping() {
             </details>
           )}
         </div>
+      )}
+      {list && me?.role === 'admin' && (
+        <button
+          className="btn link danger"
+          type="button"
+          onClick={async () => {
+            if (!confirm(`Delete the list "${list.name}" and everything on it?`)) return
+            await mutations.deleteList(list.id)
+            setParams({})
+            invalidate()
+          }}
+        >
+          Delete {list.name} list
+        </button>
       )}
 
       {editing && (
@@ -217,7 +217,7 @@ function ItemRow({ item, onToggle, onEdit }: { item: Item; onToggle: () => void;
         {item.note && <span className="sub">{item.note}</span>}
       </span>
       <button className="icon-btn" type="button" aria-label={`Edit ${item.name}`} onClick={onEdit}>
-        ✎
+        <Icon name="edit" size={18} />
       </button>
     </li>
   )
@@ -306,7 +306,7 @@ function NewList({ onClose, onCreated }: { onClose: () => void; onCreated: (id: 
     >
       <label className="field">
         <span>Name</span>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Christmas" maxLength={200} autoFocus />
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Christmas" maxLength={200} data-autofocus />
       </label>
     </Modal>
   )
