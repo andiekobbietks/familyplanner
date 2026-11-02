@@ -1,7 +1,6 @@
-import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { EventInput, ExternalEvents, Item, List, Me, MemberRecord, Occurrence, Person, PlanEntry, Settings, Task } from './types'
+import type { ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Settings, Task } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -21,23 +20,15 @@ export const useItems = (listId: string | undefined, poll = false) =>
 export const useTasks = (view: 'mine' | 'all' | 'done') =>
   useQuery({ queryKey: ['tasks', view], queryFn: () => api<Task[]>(`/tasks?view=${view}`) })
 
-export const useEvents = (from: string, to: string) =>
-  useQuery({ queryKey: ['events', from, to], queryFn: () => api<Occurrence[]>(`/events?from=${from}&to=${to}`) })
-
-/** Planner events and connected Google calendars together. A Google failure leaves the planner's own events showing (section 5.3.1). */
+/** Events from the connected Google calendars. A failed read leaves the rest of the app working (section 5.3). */
 export function useCalendarEvents(from: string, to: string) {
-  const own = useEvents(from, to)
   const google = useQuery({
     queryKey: ['external-events', from, to],
     queryFn: () => api<ExternalEvents>(`/external-events?from=${from}&to=${to}`),
     staleTime: 5 * 60_000,
     retry: false,
   })
-  const events = useMemo(
-    () => [...(own.data ?? []), ...(google.data?.events ?? [])].sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start)),
-    [own.data, google.data],
-  )
-  return { events, calendars: google.data?.calendars ?? [], unavailable: google.isError || !!google.data?.unavailable }
+  return { events: google.data?.events ?? [], calendars: google.data?.calendars ?? [], unavailable: google.isError || !!google.data?.unavailable }
 }
 
 export const usePlan = (monday: string) => useQuery({ queryKey: ['plan', monday], queryFn: () => api<PlanEntry[]>(`/plan?week=${monday}`) })
@@ -64,11 +55,6 @@ export const mutations = {
   createTask: (body: Partial<Task>) => api<Task>('/tasks', { method: 'POST', json: body }),
   patchTask: (id: string, body: Partial<Task>) => api<Task>(`/tasks/${id}`, { method: 'PATCH', json: body }),
   deleteTask: (id: string) => api<void>(`/tasks/${id}`, { method: 'DELETE' }),
-
-  createEvent: (body: EventInput) => api<Occurrence>('/events', { method: 'POST', json: body }),
-  updateEvent: (id: string, body: EventInput, scope?: 'this' | 'future', date?: string) =>
-    api<Occurrence>(`/events/${id}${scope ? `?scope=${scope}&date=${date}` : ''}`, { method: 'PUT', json: body }),
-  deleteEvent: (id: string, date?: string) => api<void>(`/events/${id}${date ? `?date=${date}` : ''}`, { method: 'DELETE' }),
 
   setCell: (date: string, slot: string, body: { text: string }) =>
     api<PlanEntry>(`/plan/${date}/${slot}`, { method: 'PUT', json: body }),

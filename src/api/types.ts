@@ -20,33 +20,22 @@ export interface MemberRecord extends Person {
   lastLoginAt?: string
 }
 
-export interface Recurrence {
-  freq: 'daily' | 'weekly' | 'monthly'
-  interval: number
-  until?: string
-  exceptions: string[]
-}
-export interface EventInput {
-  title: string
-  allDay: boolean
-  start: string
-  end: string
-  tz: string
-  assignees: string[]
-  location?: string
-  notes?: string
-  recurrence?: Recurrence | null
-}
 export interface ExternalCalendar {
   label: string
   colour: string
 }
-export interface Occurrence extends EventInput {
+/** An event from a connected Google calendar. Google is the only source of events, so these are read-only. */
+export interface Occurrence {
   id: string
+  title: string
+  allDay: boolean
+  /** A date if allDay, else a UTC instant. */
+  start: string
+  end: string
+  location?: string
   occurrenceDate: string
   recurring: boolean
-  /** Set on read-only events from a connected Google calendar. */
-  external?: ExternalCalendar
+  external: ExternalCalendar
 }
 export interface ExternalEvents {
   calendars: ExternalCalendar[]

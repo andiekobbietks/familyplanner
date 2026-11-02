@@ -1,6 +1,6 @@
 # FamilyPlanner
 
-A small private website for one household: shared calendar, shopping lists, to-dos and a weekly meal plan. See `req.md` for the full requirements. This is the v1 draft.
+A small private website for one household: a view of the family's Google calendars, shopping lists, to-dos and a weekly meal plan. See `req.md` for the full requirements. This is the v1 draft.
 
 ## Layout
 
@@ -38,7 +38,7 @@ npm test            # client unit tests, then api unit tests
 npm run typecheck
 ```
 
-API tests cover the acceptance criteria that can be checked without a browser: A1, A2, A5, A8, A9, A9a, A9c, A12, A13, plus DST handling of recurring events.
+API tests cover the acceptance criteria that can be checked without a browser: A1, A2, A5, A9c, A9d, A12, A13, plus clock changes, recurring events, and moved and deleted occurrences in Google feeds.
 
 ## Deploy
 

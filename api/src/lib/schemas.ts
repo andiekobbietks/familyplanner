@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { isValidDate, isValidInstant } from './dates'
+import { isValidDate } from './dates'
 import { CATEGORIES } from './types'
 
 /**
@@ -12,32 +12,6 @@ const short = z.string().trim().max(200)
 const long = z.string().trim().max(2000)
 const id = z.string().min(1).max(64)
 const dateStr = z.string().refine(isValidDate, 'Expected YYYY-MM-DD')
-export const recurrenceSchema = z.object({
-  freq: z.enum(['daily', 'weekly', 'monthly']),
-  interval: z.number().int().min(1).max(52).default(1),
-  until: dateStr.optional(),
-  exceptions: z.array(dateStr).max(500).default([]),
-})
-
-export const eventSchema = z
-  .object({
-    title,
-    allDay: z.boolean().default(false),
-    start: z.string(),
-    end: z.string(),
-    tz: z.string().max(64).default('Europe/London'),
-    assignees: z.array(id).max(20).default([]),
-    location: short.optional(),
-    notes: long.optional(),
-    recurrence: recurrenceSchema.nullable().optional(),
-  })
-  .superRefine((e, ctx) => {
-    const ok = e.allDay ? isValidDate(e.start) && isValidDate(e.end) : isValidInstant(e.start) && isValidInstant(e.end)
-    if (!ok) ctx.addIssue({ code: 'custom', message: e.allDay ? 'All-day events take dates' : 'Timed events take instants', path: ['start'] })
-    else if ((e.allDay ? e.end < e.start : Date.parse(e.end) < Date.parse(e.start)))
-      ctx.addIssue({ code: 'custom', message: 'End is before start', path: ['end'] })
-  })
-
 export const listSchema = z.object({ name: title })
 
 export const itemSchema = z.object({

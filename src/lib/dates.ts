@@ -1,7 +1,5 @@
 /** Display helpers. English (UK), `Mon 14 Sep`, 24-hour clock, browser's local zone. */
 
-export const localTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
-
 const pad = (n: number) => String(n).padStart(2, '0')
 
 /** Local calendar date of a Date as YYYY-MM-DD. */
@@ -55,17 +53,4 @@ export function relativeDay(date: string): string {
   if (date === addDays(today, 1)) return 'Tomorrow'
   if (date === addDays(today, -1)) return 'Yesterday'
   return fmtDay(date)
-}
-
-/** Build an instant from a local date and "HH:MM". */
-export function instantFrom(date: string, time: string): string {
-  const [hh, mm] = time.split(':').map(Number)
-  const d = parseISODate(date)
-  d.setHours(hh, mm, 0, 0)
-  return d.toISOString()
-}
-
-export function timeOfInstant(instant: string): string {
-  const d = new Date(instant)
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 }

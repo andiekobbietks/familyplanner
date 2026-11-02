@@ -12,15 +12,12 @@ export interface ExternalCalendar {
   colour: string
 }
 
-/** The same shape as a planner occurrence, so the client can merge the two. */
 export interface ExternalOccurrence {
   id: string
   title: string
   allDay: boolean
   start: string
   end: string
-  tz: string
-  assignees: string[]
   location?: string
   occurrenceDate: string
   recurring: boolean
@@ -115,8 +112,6 @@ export function expandFeed({ tz, events }: Parsed, calendar: ExternalCalendar, f
       allDay,
       start: allDay ? firstDay : startAt.toISOString(),
       end: allDay ? lastDay : endAt.toISOString(),
-      tz,
-      assignees: [],
       location: item.location || undefined,
       occurrenceDate: firstDay,
       recurring,
@@ -202,6 +197,8 @@ export async function readCalendars(from: string, to: string, now = Date.now()):
       }
     }),
   )
+  // All-day events first, then by start time.
+  events.sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start))
   return { calendars: feeds.map(({ label, colour }) => ({ label, colour })), events, unavailable }
 }
 

@@ -26,26 +26,6 @@ export interface Member extends BaseDoc {
   providerUserId?: string
 }
 
-export interface Recurrence {
-  freq: 'daily' | 'weekly' | 'monthly'
-  interval: number
-  until?: string
-  exceptions: string[]
-}
-
-export interface Event extends BaseDoc {
-  type: 'event'
-  title: string
-  allDay: boolean
-  start: string // "YYYY-MM-DD" if allDay, else UTC instant
-  end: string
-  tz: string
-  assignees: string[]
-  location?: string
-  notes?: string
-  recurrence?: Recurrence | null
-}
-
 export interface List extends BaseDoc {
   type: 'list'
   name: string
@@ -98,7 +78,7 @@ export interface Settings extends BaseDoc {
   defaultListId?: string
 }
 
-export type AnyDoc = Member | Event | List | Item | Task | Meal | PlanEntry | Settings
+export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Settings
 
 export interface Caller {
   memberId: string

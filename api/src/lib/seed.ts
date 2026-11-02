@@ -1,6 +1,6 @@
 import { PALETTE } from './caller'
 import { addDays, mondayOf } from './dates'
-import type { BaseDoc, Event, Item, List, Member, PlanEntry, Settings, Task } from './types'
+import type { BaseDoc, Item, List, Member, PlanEntry, Settings, Task } from './types'
 
 /**
  * Sample household for local development. Only used when the memory store
@@ -50,19 +50,6 @@ export function seed(familyId: string): BaseDoc[] {
     { ...base('t-5', 'task'), title: 'Order school shoes', dueDate: addDays(today, -5), assignee: 'm-jo', done: true, completedAt: addDays(today, -1) + 'T18:00:00.000Z', completedBy: 'm-jo' },
   ]
 
-  const at = (date: string, hh: number, mm = 0) => {
-    const d = new Date(`${date}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`)
-    return d.toISOString()
-  }
-  const events: Event[] = [
-    { ...base('e-1', 'event'), title: 'Swimming', allDay: false, start: at(monday, 17, 0), end: at(monday, 18, 0), tz: 'Europe/London', assignees: ['m-charlie'], location: 'Leisure centre', recurrence: { freq: 'weekly', interval: 1, exceptions: [] } },
-    { ...base('e-2', 'event'), title: 'Bins out', allDay: true, start: addDays(monday, 2), end: addDays(monday, 2), tz: 'Europe/London', assignees: ['m-tim'], recurrence: { freq: 'weekly', interval: 2, exceptions: [] } },
-    { ...base('e-3', 'event'), title: 'Parents evening', allDay: false, start: at(addDays(today, 1), 16, 30), end: at(addDays(today, 1), 17, 30), tz: 'Europe/London', assignees: ['m-tim', 'm-jo'], location: 'School hall', notes: 'Bring the reading record' },
-    { ...base('e-4', 'event'), title: "Grandma's birthday", allDay: true, start: addDays(today, 4), end: addDays(today, 4), tz: 'Europe/London', assignees: ['m-tim', 'm-jo', 'm-charlie', 'm-robin'] },
-    { ...base('e-5', 'event'), title: 'Piano lesson', allDay: false, start: at(addDays(monday, 3), 16, 0), end: at(addDays(monday, 3), 16, 30), tz: 'Europe/London', assignees: ['m-robin'], recurrence: { freq: 'weekly', interval: 1, exceptions: [] } },
-    { ...base('e-6', 'event'), title: 'Half term', allDay: true, start: addDays(monday, 14), end: addDays(monday, 18), tz: 'Europe/London', assignees: ['m-charlie', 'm-robin'] },
-  ]
-
   const plan: PlanEntry[] = [
     { ...base(`plan:${monday}:dinner`, 'plan'), date: monday, slot: 'dinner', text: 'Fish finger sandwiches' },
     { ...base(`plan:${addDays(monday, 1)}:lunch`, 'plan'), date: addDays(monday, 1), slot: 'lunch', text: 'Cheese sandwiches' },
@@ -75,5 +62,5 @@ export function seed(familyId: string): BaseDoc[] {
 
   const settings: Settings = { ...base('settings', 'settings'), id: 'settings', breakfastEnabled: false, defaultListId: 'l-groceries' }
 
-  return [...members, ...lists, ...items, ...tasks, ...events, ...plan, settings]
+  return [...members, ...lists, ...items, ...tasks, ...plan, settings]
 }

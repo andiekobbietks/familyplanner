@@ -16,7 +16,7 @@ The product is deliberately small. It is not a general-purpose SaaS product. The
 ## 2. Goals
 
 - A family member can open the site on a phone and see today's events, tonight's dinner, open shopping items and their own to-dos within two seconds of login.
-- Adding an event, shopping item or task takes fewer than three taps.
+- Adding a shopping item or task takes fewer than three taps.
 - Only invited family members can see or change anything. Nothing is readable anonymously, including the API.
 - Runs on the free tiers of Azure Static Web Apps and Azure Cosmos DB, with a target of under £5 per month all-in.
 - No passwords are stored or handled by the application itself. Authentication is delegated to a provider.
@@ -32,7 +32,7 @@ Explicitly out of scope for the first release:
 - Native mobile apps. A responsive, installable web app (PWA) is sufficient.
 - Push notifications or reminders. Deferred to v2.
 - Real-time collaboration (WebSockets or SignalR). Polling on focus is sufficient for v1.
-- Two-way sync with Google Calendar, Outlook or Apple Calendar. Displaying Google calendars read-only is in scope (Section 5.3.1); writing to them is not. A read-only ICS export feed from the planner is a v2 candidate.
+- Creating, editing or deleting events in the planner, and writing to Google Calendar. Google Calendar is the single source of truth for events; the planner only displays them (Section 5.3).
 - Budgeting, chores with rewards, photo sharing. All possible later, none in v1.
 - Recipes in any form: a meal library, recipe import, ingredients, nutrition information, portion scaling. The meal planner is a plan of plain text, not a recipe manager.
 - Offline editing. The app should load its shell offline but does not need to queue writes.
@@ -48,13 +48,13 @@ Explicitly out of scope for the first release:
 | Role | Who | Can do |
 |---|---|---|
 | `admin` | Parents | Everything a member can do, plus invite and remove members, delete lists, export all data. |
-| `member` | Other family members | Create, edit and complete events, list items and tasks. See everything. |
+| `member` | Other family members | Create, edit and complete list items and tasks. See everything. |
 
 Notes:
 
 - Every user is assigned to exactly one of the two roles at invitation time.
 - There is no anonymous role. An unauthenticated visitor sees only a login page.
-- A "child" role with reduced capabilities (for example, complete tasks but not delete events) is a v2 candidate. Design the authorisation check as a single function so adding a role is a one-place change.
+- A "child" role with reduced capabilities (for example, complete tasks but not delete lists) is a v2 candidate. Design the authorisation check as a single function so adding a role is a one-place change.
 
 ---
 
@@ -77,32 +77,25 @@ The landing page after login. It answers "what's happening today?" first and let
 
 - A greeting and today's date.
 - A Today card: today's events in time order (past ones dimmed), today's lunch and dinner (and breakfast if enabled) as editable fields, and the current user's open tasks due today or overdue, each completed with one tap.
-- The next six days, one line each: that day's events and dinner. Tapping a day opens it with the same detail as Today, so tomorrow's dinner can be planned without leaving the page. From 15:00 tomorrow is open by default, since packed lunches are prepared the evening before. Events include any connected Google calendars (Section 5.3.1).
+- The next six days, one line each: that day's events and dinner. Tapping a day opens it with the same detail as Today, so tomorrow's dinner can be planned without leaving the page. From 15:00 tomorrow is open by default, since packed lunches are prepared the evening before. 
 - A tile per shopping list with its unchecked count, linking to the list.
-- A floating add button in thumb reach opens a sheet: type text, choose shopping / to-do / event, submit. It stays open for adding several things and defaults to the most recently used type. Events are all-day, today unless another date is chosen.
+- A floating add button in thumb reach opens a sheet: type text, choose shopping or to-do, submit. It stays open for adding several things and defaults to the most recently used type.
 
 ### 5.3 Calendar
 
-- Views: month, week and agenda (a scrolling list of upcoming events). Agenda is the default on phones, month on larger screens.
-- An event has: title (required), start date and time, end date and time, all-day flag, one or more assigned members, optional location, optional notes, colour derived from the first assigned member.
-- All-day events store a date only, not a time, so they never shift with timezone changes.
-- Timed events store an ISO 8601 UTC instant plus the IANA timezone the event was created in (`Europe/London`). Display always uses the browser's local timezone.
-- Recurrence in v1 is limited to: none, daily, weekly, every N weeks, monthly on the same date. Recurring events store the rule, not expanded copies. Editing offers "this occurrence" or "all future occurrences". Deleting a single occurrence adds an exception date to the rule.
-- Filter by member. "Everyone" is the default.
-- Any member can create, edit or delete any event. Every change records who made it and when.
+Google Calendar is the single source of truth for events. The planner displays them and never creates, changes or deletes them. A button opens Google Calendar for adding or changing events.
 
-#### 5.3.1 Google calendars (read-only display)
-
-At minimum, the planner displays one or more existing Google calendars alongside its own events. It does not write to them.
-
+- Views: month, week and agenda (a scrolling list of upcoming events). Agenda is the default on phones, month on larger screens. On a phone, tapping a day in the month view opens its list.
 - Each connected calendar is read from its Google "Secret address in iCal format", which works for a private calendar without any Google login inside the planner.
 - The API fetches and parses the feed on the server. The browser never contacts Google and never receives the feed address, so the CSP is unchanged (S10) and nothing is embedded (S11).
-- Google events appear in the month, week and agenda views and on the dashboard. They show title, time, all-day flag and location, are visibly marked with the calendar's label and colour (never colour alone), and have no edit or delete controls.
+- Events show on the calendar and dashboard with their title, time, all-day flag and location. Tapping one shows its details, with no edit or delete controls.
 - Recurring events, exceptions and all-day events in the feed display on the correct dates, including across the clock changes (Section 8).
-- Filter by calendar. "Everyone" includes connected calendars.
+- With two or more calendars connected, events carry their calendar's label as well as its colour (never colour alone) and the calendar can be filtered by calendar. "All" is the default.
 - Connected calendars are configured by the `GOOGLE_CALENDARS` application setting, a JSON list of `{ "label", "url" }` (S19), not through the UI. Every member sees every connected calendar.
 - Feed contents are cached in memory for up to 15 minutes and are not written to the database, so a Google event's changes appear within 15 minutes and the export (A10) is unaffected.
-- If a feed cannot be fetched or parsed, the planner's own events still display, and the calendar shows "Google calendar unavailable" rather than an error. The last good cached copy may be shown instead.
+- If a feed cannot be fetched or parsed, the rest of the planner keeps working and the calendar shows "Google calendar unavailable" rather than an error. The last good cached copy may be shown instead.
+
+Events created before this decision remain as `event` documents, are no longer displayed, and appear in the export.
 
 ### 5.4 Shopping lists
 
@@ -170,7 +163,7 @@ Design points:
 - **Client** is a single-page app. All data access goes through `/api/*`. The client never talks to Cosmos DB directly and holds no secrets.
 - **API** is a small set of HTTP-triggered functions. Every handler follows the same pattern: resolve the caller, check role, validate body with a schema, perform the operation, return JSON.
 - **Caller resolution is one function.** `getCaller(req)` reads `x-ms-client-principal` and returns `{ memberId, role, familyId }`. Handlers never read the header themselves. In v2 this same function can accept a service credential for the home server without touching any handler.
-- **Database** is one Cosmos DB container with partition key `/familyId` and a `type` field discriminating documents (`event`, `list`, `item`, `task`, `plan`, `member`). One family means one hot partition, which is fine at this scale.
+- **Database** is one Cosmos DB container with partition key `/familyId` and a `type` field discriminating documents (`list`, `item`, `task`, `plan`, `member`). One family means one hot partition, which is fine at this scale.
 - **Configuration** lives in SWA application settings: the database endpoint and names, the service principal's tenant, client id and secret (S18), and any Google calendar feed addresses (S30).
 
 ### 6.1 Cost estimate
@@ -241,7 +234,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 
 ### 7.7 Privacy
 
-- S27. The system stores only what the features need: display name, email (from the provider), role, and the family's own content. No date of birth, no addresses beyond free-text event locations, no photos.
+- S27. The system stores only what the features need: display name, email (from the provider), role, and the family's own content. No date of birth, no addresses, no photos.
 - S28. Data about children is entered by their parents and only visible to invited family. There is no public or shareable surface in v1.
 - S29. An admin can delete all data for the family in one action, leaving only that admin's own member record so they can still sign in. This satisfies the family's own right to erasure and makes decommissioning clean.
 - S30. A Google calendar feed address is a secret: anyone holding it can read that calendar. It lives only in application settings (S19), is never sent to the browser and is never logged (S23). Only `https://calendar.google.com/` addresses are fetched, so a bad setting cannot point the API elsewhere. If an address leaks, reset it in Google Calendar and update the setting.
@@ -257,7 +250,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 - **Timezone.** All display in the browser's local zone. The household is in `Europe/London`; the app must handle the two clock changes per year correctly for both timed and all-day events.
 - **Language.** English (UK) only. Dates displayed as `Mon 14 Sep`, times as 24-hour.
 - **Browser support.** Current versions of Safari on iOS, Chrome on Android, and Chrome, Firefox and Edge on desktop. No Internet Explorer.
-- **Data limits.** Assume up to 5,000 events, 50 lists, 10,000 items, 5,000 tasks, 300 meals and 3,000 plan entries over the app's life. Nothing needs pagination in v1 beyond limiting agenda and done views to a date range.
+- **Data limits.** Assume up to 50 lists, 10,000 items, 5,000 tasks and 3,000 plan entries over the app's life. Nothing needs pagination in v1 beyond limiting agenda and done views to a date range.
 
 ---
 
@@ -267,13 +260,6 @@ All documents share: `id` (UUID), `familyId`, `type`, `createdAt`, `createdBy`, 
 
 ```
 member   { displayName, email, role: "admin"|"member", colour, lastLoginAt, active: bool }
-
-event    { title, allDay: bool,
-           start, end,              // "YYYY-MM-DD" if allDay, else UTC instant
-           tz: "Europe/London",
-           assignees: [memberId],
-           location?, notes?,
-           recurrence?: { freq: "daily"|"weekly"|"monthly", interval: n, until?, exceptions: [date] } }
 
 list     { name, sortOrder, archived: bool }
 
@@ -297,11 +283,7 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | Method | Route | Purpose |
 |---|---|---|
 | GET | `/me` | Current user's member record and role |
-| GET | `/events?from=&to=` | Events overlapping a date range, recurrence expanded server-side |
 | GET | `/external-events?from=&to=` | Read-only events from connected Google calendars, recurrence expanded server-side. Returns `{ calendars, events, unavailable }` |
-| POST | `/events` | Create event |
-| PUT | `/events/{id}` | Update event (query `scope=this|future` for recurring) |
-| DELETE | `/events/{id}` | Delete event or one occurrence (`?date=`) |
 | GET | `/lists` | All lists with unchecked counts |
 | POST | `/lists` | Create list (admin) |
 | DELETE | `/lists/{id}` | Delete list and its items (admin) |
@@ -336,7 +318,7 @@ Chosen to match what has worked before on initweave.
 - **Client:** React 18, TypeScript, Vite. Routing with React Router. State via TanStack Query for server data (gives caching, refetch on focus and polling for free). No global state library.
 - **Styling:** Plain CSS modules or Tailwind. Whichever is chosen, no runtime CSS-in-JS.
 - **API:** Azure Functions v4 programming model, Node 22, TypeScript, Zod for validation, `@azure/cosmos` with `DefaultAzureCredential`.
-- **Testing:** Vitest for unit tests on both sides. Playwright for a small smoke suite (login redirect, add item, add event) run against a preview environment.
+- **Testing:** Vitest for unit tests on both sides. Playwright for a small smoke suite (login redirect, add item) run against a preview environment.
 - **Repository:** GitHub, single repo, `main` branch protected. Directory layout: `/src` client, `/api` functions, `/infra` Bicep, `staticwebapp.config.json` at root.
 - **Infrastructure as code:** A Bicep file creates the SWA, Cosmos DB account, database, container, role assignment for the API's service principal, and budget alert. Deployed once by hand; re-runnable.
 - **CI/CD:** The GitHub Actions workflow generated by SWA. Pull requests get a preview environment automatically. Merges to `main` deploy to production. CI runs lint, type-check, unit tests and `npm audit` before deploy.
@@ -359,13 +341,13 @@ Each of these should be demonstrable before v1 is called done.
 - A6. On a phone, add a shopping item in three taps from the home page.
 - A7. Two browsers logged in as different members: an item checked in one appears checked in the other within 30 seconds without a reload.
 - A7a. On an iPhone, tapping "Copy" on a list with three unchecked and two checked items, then pasting into Notes, gives exactly the three unchecked items, one per line.
-- A8. A weekly recurring event created on a Monday appears on the next eight Mondays in the month view, and deleting one occurrence leaves the others.
+- A8. A weekly recurring event in the Google calendar appears on the correct days, and an occurrence deleted in Google does not.
 - A9. An all-day event on the day the clocks change displays on the correct day.
-- A9d. With a Google calendar connected, a weekly timed event and an all-day event from it appear on the correct days in the month view and dashboard, marked as Google events with no edit or delete controls. No browser request goes to a Google domain, and the feed address appears in no API response or log line. With the feed address made invalid, the planner's own events still display and the calendar shows "Google calendar unavailable".
+- A9d. With a Google calendar connected, a weekly timed event and an all-day event from it appear on the correct days in the month view and dashboard, with no edit or delete controls. No browser request goes to a Google domain, and the feed address appears in no API response or log line. With the feed address made invalid, the rest of the planner keeps working and the calendar shows "Google calendar unavailable".
 - A9a. On a phone, type a meal into an empty cell and press Enter. Focus moves to the next cell and the meal is still there after a reload. Emptying the cell clears it.
 - A9b. Wednesday's lunch and dinner appear on the dashboard on Wednesday and not on Tuesday. At 16:00 on Tuesday the dashboard also shows Wednesday's lunch. On a phone the week view shows seven days, each with both slots, without horizontal scrolling.
 - A9c. "Copy last week" onto a week that already has Friday filled leaves Friday untouched and fills the other six days.
-- A10. Export downloads a JSON file that contains every event, list, item, task, plan entry and member.
+- A10. Export downloads a JSON file that contains every list, item, task, plan entry and member.
 
 **Security and operations**
 - A11. Response headers on the home page include CSP, nosniff, frame options and referrer policy as specified.
@@ -388,7 +370,7 @@ Decide these before building. Defaults are stated so work can proceed without th
 - **D5. Children as users.** Do the children get their own logins in v1, or are they only assignees without accounts? Default: assignees without accounts. This keeps the account count to two and avoids creating provider accounts for young children.
 - **D6. Source of truth in v2.** When the home server arrives, does the planner data stay in Azure with the home server as a consumer, or move home with Azure as a front end? Default: stays in Azure. The planner must keep working when the house has a power cut or the server is being rebuilt, which is exactly when a family most needs its calendar. See Section 15.
 - **D7. Meal slots.** Decided: Lunch and Dinner are both planned from v1 and cannot be disabled. Breakfast exists in the data model and is switchable on in settings, off by default.
-- **D8. Google calendar display.** Decided: read the secret iCal feed on the server. Google's embedded calendar iframe was rejected because it needs a third-party `frame-src`, breaks S10 and S11, and cannot merge with planner events. The Google Calendar API with OAuth was rejected because it needs a Google Cloud project and a per-user consent flow for a read-only display. If writing to Google is wanted later, the API is the route.
+- **D8. Google calendar display.** Decided: read the secret iCal feed on the server. Google's embedded calendar iframe was rejected because it needs a third-party `frame-src`, breaks S10 and S11, and cannot match the planner's views. The Google Calendar API with OAuth was rejected because it needs a Google Cloud project and a per-user consent flow for a read-only display. If writing to Google is wanted later, the API is the route. The planner keeps no events of its own, so there is one source of truth.
 
 ---
 
@@ -397,7 +379,7 @@ Decide these before building. Defaults are stated so work can proceed without th
 1. **Skeleton (week 1).** Repo, Bicep infra, SWA deployed with auth and route rules, `/api/me` returning the principal. Acceptance A1 to A4 pass with an empty app.
 2. **Shopping lists (week 2).** Full lists and items feature, polling, mobile layout. A6, A7.
 3. **To-dos (week 3).** Tasks feature and dashboard. A12, A13.
-4. **Calendar (weeks 4 and 5).** Views, events, recurrence, Google calendar display. A8, A9, A9d.
+4. **Calendar (weeks 4 and 5).** Views and Google calendar display. A8, A9, A9d.
 5. **Meal planning (week 6).** Week plan and dashboard tie-in. A9a to A9c.
 6. **Admin and hardening (week 7).** Members page, settings, invitations, export, headers, logging, budget alert, Lighthouse. Remaining acceptance criteria.
 
@@ -409,7 +391,7 @@ A future home server (document storage, smart home, media, and so on) will want 
 
 ### 15.1 Principles
 
-- **The planner stays in Azure and stays the source of truth** for events, lists and tasks (D6). The home server is a consumer and, optionally, a contributor. Availability is the reason: a self-hosted planner is down whenever the house is.
+- **The planner stays in Azure and stays the source of truth** for lists, tasks and meal plans (D6); Google Calendar is the source of truth for events. The home server is a consumer and, optionally, a contributor. Availability is the reason: a self-hosted planner is down whenever the house is.
 - **The home server is never exposed to the public internet directly.** Anything the planner needs from it is reached through a tunnel (Cloudflare Tunnel, Tailscale Funnel or Entra Application Proxy), and the tunnel endpoint is called only from the Functions API, never from the browser. This keeps the browser CSP at `connect-src 'self'` and keeps the home server's address out of the client bundle.
 - **The planner degrades gracefully.** If the home server is unreachable, every v1 feature still works. Integration features show "unavailable" rather than erroring.
 - **One family identity.** Family members log in once. The identity provider chosen in D1 is the one the home server's services federate to, so nobody has a second password.
@@ -418,7 +400,7 @@ A future home server (document storage, smart home, media, and so on) will want 
 
 | Direction | Example | Mechanism |
 |---|---|---|
-| Home server pulls from planner | Nightly backup of the JSON export to the NAS; calendar shown on a kitchen display; Home Assistant automation "bins go out" from a recurring task | Home server calls `/api/export` or `/api/events` with a service credential |
+| Home server pulls from planner | Nightly backup of the JSON export to the NAS; calendar shown on a kitchen display; Home Assistant automation "bins go out" from a recurring task | Home server calls `/api/export` or `/api/external-events` with a service credential |
 | Home server pushes to planner | Smart speaker adds "milk" to Groceries; a document scanner creates a task "file the car insurance" | Home server calls `POST /api/lists/{id}/items` with a service credential |
 | Planner pulls from home server | Attach a document from home storage to an event; show whether the front door is locked on the dashboard | Functions API calls the home server through the tunnel with a secret from Key Vault |
 

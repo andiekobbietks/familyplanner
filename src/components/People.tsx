@@ -20,17 +20,6 @@ export function Avatar({ person, size = 22 }: { person?: Person; size?: number }
   )
 }
 
-export function Avatars({ ids }: { ids: string[] }) {
-  const map = usePersonMap()
-  return (
-    <span className="avatars">
-      {ids.map((id) => (
-        <Avatar key={id} person={map.get(id)} />
-      ))}
-    </span>
-  )
-}
-
 /** Multi-select of members as toggle chips. */
 export function PersonChips({ value, onChange, single = false }: { value: string[]; onChange: (v: string[]) => void; single?: boolean }) {
   const { data: people = [] } = usePeople()

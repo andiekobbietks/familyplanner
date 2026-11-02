@@ -1,16 +1,14 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { mutations, useLists, useMe, useSettings } from '../api/hooks'
-import { fmtDay, localTz, todayISO } from '../lib/dates'
 import { Icon } from './Icons'
 import { Modal } from './Modal'
 
-type Kind = 'shopping' | 'task' | 'event'
+type Kind = 'shopping' | 'task'
 const KEY = 'fp.quickadd.kind'
 const KINDS: { kind: Kind; label: string; placeholder: string }[] = [
   { kind: 'shopping', label: 'Shopping', placeholder: 'Milk, bin bags…' },
   { kind: 'task', label: 'To-do', placeholder: 'Book the dentist…' },
-  { kind: 'event', label: 'Event', placeholder: 'Swimming, bins out…' },
 ]
 
 /** A button in thumb reach that opens a sheet. Stays open after adding, because shopping items tend to come in runs. Remembers the last type used (section 5.2). */
@@ -29,13 +27,12 @@ export function QuickAdd() {
 function QuickAddSheet({ onClose }: { onClose: () => void }) {
   const [kind, setKind] = useState<Kind>(() => {
     try {
-      return (localStorage.getItem(KEY) as Kind) || 'shopping'
+      return localStorage.getItem(KEY) === 'task' ? 'task' : 'shopping'
     } catch {
       return 'shopping'
     }
   })
   const [text, setText] = useState('')
-  const [date, setDate] = useState(todayISO())
   const [busy, setBusy] = useState(false)
   // The sheet sits above toasts, so results are reported inside it.
   const [status, setStatus] = useState('')
@@ -69,14 +66,10 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
         void qc.invalidateQueries({ queryKey: ['lists'] })
         void qc.invalidateQueries({ queryKey: ['items'] })
         setStatus(`Added ${title} to ${lists?.find((l) => l.id === listId)?.name ?? 'the list'}`)
-      } else if (kind === 'task') {
+      } else {
         await mutations.createTask({ title, assignee: me?.id })
         void qc.invalidateQueries({ queryKey: ['tasks'] })
         setStatus(`To-do added: ${title}`)
-      } else {
-        await mutations.createEvent({ title, allDay: true, start: date, end: date, tz: localTz(), assignees: me ? [me.id] : [] })
-        void qc.invalidateQueries({ queryKey: ['events'] })
-        setStatus(`${title} added for ${fmtDay(date)}`)
       }
       setText('')
     } catch (err) {
@@ -103,12 +96,6 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
             Add
           </button>
         </div>
-        {kind === 'event' && (
-          <label className="field quick-date">
-            <span>All day on</span>
-            <input type="date" value={date} required onChange={(e) => setDate(e.target.value || todayISO())} />
-          </label>
-        )}
         <p className="quick-status small" role="status">
           {status}
         </p>

@@ -1,10 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { useCalendarEvents, useLists, useMe, usePlan, useSettings, useTasks } from '../api/hooks'
 import type { Occurrence, PlanEntry, Slot, Task } from '../api/types'
 import { Icon } from '../components/Icons'
 import { MealInput } from '../components/MealInput'
-import { Avatars, usePersonMap } from '../components/People'
 import { QuickAdd } from '../components/QuickAdd'
 import { addDays, dateOfInstant, fmtDayLong, fmtTime, fmtWeekday, mondayOf, relativeDay, todayISO } from '../lib/dates'
 import { useSetTaskDone } from './Todos'
@@ -22,7 +21,7 @@ export function Home() {
   const lastDay = addDays(today, 6)
   const now = new Date()
   const { data: me } = useMe()
-  const { events, unavailable } = useCalendarEvents(today, lastDay)
+  const { events, calendars, unavailable } = useCalendarEvents(today, lastDay)
   const { data: lists = [] } = useLists()
   const { data: tasks = [] } = useTasks('mine')
   const { data: settings } = useSettings()
@@ -54,6 +53,7 @@ export function Home() {
     events: eventsByDay.get(date) ?? [],
     plan: plan.filter((p) => p.date === date),
     slots,
+    showCalendar: calendars.length > 1,
     // Anything overdue stays on today until it is done.
     tasks: tasks.filter((t) => t.dueDate && (date === today ? t.dueDate <= today : t.dueDate === date)),
   })
@@ -123,12 +123,12 @@ interface DayProps {
   events: Occurrence[]
   plan: PlanEntry[]
   slots: Slot[]
+  showCalendar: boolean
   tasks: Task[]
 }
 
-function DayDetail({ date, events, plan, slots, tasks }: DayProps) {
+function DayDetail({ date, events, plan, slots, showCalendar, tasks }: DayProps) {
   const today = todayISO()
-  const people = usePersonMap()
   const setDone = useSetTaskDone('mine')
   const now = Date.now()
   return (
@@ -140,12 +140,11 @@ function DayDetail({ date, events, plan, slots, tasks }: DayProps) {
             <li key={`${e.id}-${e.occurrenceDate}`} className={!e.allDay && Date.parse(e.end) < now ? 'gone' : ''}>
               <Link to="/calendar">
                 <span className="time">{e.allDay ? 'All day' : fmtTime(e.start)}</span>
-                <span className="colourbar" style={{ background: e.external?.colour ?? people.get(e.assignees[0])?.colour ?? 'var(--accent)' }} />
+                <span className="colourbar" style={{ background: e.external.colour }} />
                 <span className="grow">
                   {e.title}
-                  {(e.location || e.external) && <span className="sub">{[e.location, e.external?.label].filter(Boolean).join(' · ')}</span>}
+                  {(e.location || showCalendar) && <span className="sub">{[e.location, showCalendar && e.external.label].filter(Boolean).join(' · ')}</span>}
                 </span>
-                <Avatars ids={e.assignees} />
               </Link>
             </li>
           ))}
@@ -188,9 +187,13 @@ function WeekRow({ open, onToggle, ...day }: DayProps & { open: boolean; onToggl
           <b>{Number(date.slice(8))}</b>
         </span>
         <span className="grow week-summary">
-          <span className={events.length ? 'week-events' : 'week-events muted'}>
-            {events.length ? events.map((e) => (e.allDay ? e.title : `${e.title} ${fmtTime(e.start)}`)).join(' · ') : 'Nothing on'}
-          </span>
+          {events.length === 0 && <span className="week-events muted">Nothing on</span>}
+          {events.map((e) => (
+            <span key={`${e.id}-${e.occurrenceDate}`} className={`evt ${e.allDay ? '' : 'timed'}`} style={{ '--c': e.external.colour } as CSSProperties}>
+              {!e.allDay && <strong>{fmtTime(e.start)} </strong>}
+              {e.title}
+            </span>
+          ))}
           <span className="week-dinner">{dinner ?? 'No dinner planned'}</span>
         </span>
         <Icon name="down" size={18} />

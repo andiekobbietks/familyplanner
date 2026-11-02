@@ -111,8 +111,8 @@ describe('reading a Google feed', () => {
   it('a multi-day event overlaps the middle of its span', () => {
     expect(expand('2026-11-21', '2026-11-21').filter((x) => x.allDay)).toMatchObject([{ title: 'Weekend away', start: '2026-11-20', end: '2026-11-22' }])
   })
-  it('marks every event with its calendar and gives it no assignees', () => {
-    for (const e of expand('2026-10-01', '2026-12-01')) expect(e).toMatchObject({ external: cal, assignees: [] })
+  it('marks every event with its calendar', () => {
+    for (const e of expand('2026-10-01', '2026-12-01')) expect(e.external).toEqual(cal)
   })
 })
 
@@ -151,6 +151,12 @@ describe('fetching', () => {
     const r = await read()
     expect(r.events).toHaveLength(1)
     expect(JSON.stringify(r)).not.toContain('s3cret')
+  })
+  it('sorts all-day events first, then by start time', async () => {
+    fetchMock.mockImplementation(async () => ok())
+    const r = await readCalendars('2026-10-26', '2026-11-05', T0)
+    expect(r.events.map((e) => e.title)).toEqual(['Bonfire night', 'Football', 'Football'])
+    expect(r.events[1].start < r.events[2].start).toBe(true)
   })
   it('caches for 15 minutes', async () => {
     fetchMock.mockImplementation(async () => ok())
