@@ -49,10 +49,12 @@ Explicitly out of scope for the first release:
 |---|---|---|
 | `admin` | Parents | Everything a member can do, plus invite and remove members, delete lists, export all data. |
 | `member` | Other family members | Create, edit and complete list items and tasks. See everything. |
+| `display` | The kitchen wall screen (photoframe) | Read only what `/display` shows: calendar, today's meals, tasks due, the coming week, weather and chores. No writes, chat, shopping lists, recipes, members or export. Sees only the `/display` page. |
 
 Notes:
 
-- Every user is assigned to exactly one of the two roles at invitation time.
+- Every user is assigned to exactly one role at invitation time.
+- The display role is closed by default: a route is open to it only if it is marked so where routes are registered, and only GET routes can be. A new route therefore stays closed to the wall screen until someone decides otherwise. A display member is not a person, so it doesn't appear in pickers and can't be given a chore.
 - There is no anonymous role. An unauthenticated visitor sees only a login page.
 - A "child" role with reduced capabilities (for example, complete tasks but not delete lists) is a v2 candidate. Design the authorisation check as a single function so adding a role is a one-place change.
 
@@ -302,7 +304,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 All documents share: `id` (UUID), `familyId`, `type`, `createdAt`, `createdBy`, `updatedAt`, `updatedBy`. Dates are ISO 8601 strings.
 
 ```
-member   { displayName, email, role: "admin"|"member", colour, lastLoginAt, active: bool }
+member   { displayName, email, role: "admin"|"member"|"display", colour, lastLoginAt, active: bool }
 
 list     { name, sortOrder, archived: bool }
 
@@ -327,7 +329,7 @@ Soft delete is not needed. Deletes are real, and the periodic backup plus manual
 
 ## 10. API surface
 
-All routes under `/api`, JSON in and out, role `member` or `admin` unless marked.
+All routes under `/api`, JSON in and out, role `member` or `admin` unless marked. The `display` role may call only `GET /me`, `/people`, `/external-events`, `/tasks`, `/plan`, `/chores`, `/weather` and `/settings`.
 
 | Method | Route | Purpose |
 |---|---|---|
@@ -422,6 +424,7 @@ Each of these should be demonstrable before v1 is called done.
 - A11. Response headers on the home page include CSP, nosniff, frame options and referrer policy as specified.
 - A12. A request body with an extra field `"role": "admin"` on `PATCH /api/members/me` does not change the role.
 - A13. A title of 10,000 characters is rejected with 400.
+- A13a. A display member gets 403 from every route outside its read list, including chat, every write, export and the members list, and the data is unchanged afterwards.
 - A14. `grep` of the repository for the Cosmos DB account key returns nothing, and the CI secret scan passes.
 - A15. Application Insights shows a request log line with user id and status for an API call, and no line containing a request body.
 - A16. Lighthouse on the home page: performance 90+, accessibility 95+, installable PWA passes.

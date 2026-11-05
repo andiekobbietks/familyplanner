@@ -10,7 +10,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
  * no development-only branches: it always reads the header, exactly as in prod.
  *
  * Who you are is held in a cookie, `fp_dev_user`. No cookie means logged out.
- * Visit /.auth/dev?as=jo (or charlie, robin, stranger) to switch identity.
+ * Visit /.auth/dev?as=jo (or charlie, robin, display, stranger) to switch identity.
  */
 type DevUser = { userId: string; userDetails: string; roles: string[] }
 const DEV_USERS: Record<string, DevUser> = {
@@ -18,6 +18,8 @@ const DEV_USERS: Record<string, DevUser> = {
   jo: { userId: 'dev-jo', userDetails: 'jo@example.com', roles: ['admin'] },
   charlie: { userId: 'dev-charlie', userDetails: 'charlie@example.com', roles: ['member'] },
   robin: { userId: 'dev-robin', userDetails: 'robin@example.com', roles: ['member'] },
+  // The wall screen (role `display` in the seed): only /display.
+  display: { userId: 'dev-display', userDetails: 'display@example.com', roles: [] },
   // Logged in with the provider but never invited: exercises the not-a-member path.
   stranger: { userId: 'dev-stranger', userDetails: 'stranger@example.com', roles: [] },
 }
@@ -86,6 +88,8 @@ function devAuth(): Plugin {
 
 export default defineConfig({
   plugins: [react(), devAuth()],
+  // The photoframe's browser may be as old as Chrome 106 (the last for Android 6). Vite's default target is newer.
+  build: { target: ['es2020', 'chrome87', 'firefox78', 'safari14'] },
   server: {
     port: 5173,
     proxy: {

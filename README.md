@@ -34,7 +34,7 @@ npm --prefix api run dev      # builds and starts the Functions host on :7071
 npm run dev                   # Vite on :5173, proxies /api and fakes /.auth
 ```
 
-Open http://localhost:5173. You start logged out. The login page offers the dev identities: Tim and Jo (admins), Charlie and Robin (members), and Stranger (signed in but not invited, to see the not-a-member page). Switch at any time via `/.auth/dev?as=jo`.
+Open http://localhost:5173. You start logged out. The login page offers the dev identities: Tim and Jo (admins), Charlie and Robin (members), Kitchen display (the wall screen), and Stranger (signed in but not invited, to see the not-a-member page). Switch at any time via `/.auth/dev?as=jo`.
 
 Locally the API uses an in-memory store persisted to `api/.data/db.json`, seeded with a sample household. Delete that file to reseed. Production Cosmos DB only accepts connections from Azure datacentres (S20), so local development stays on this store.
 
@@ -70,6 +70,16 @@ Members can ask questions about the planner at `/chat`. The API answers using Cl
 To turn it on, create an API key in the Anthropic Console and set a monthly spend limit there, because the Azure budget alert doesn't cover this cost. Then run `bash infra/set-chat-key.sh` in a terminal signed in with `az login`. Until a key is set the page says chat isn't set up, and the rest of the site is unaffected. To try it locally, export `ANTHROPIC_API_KEY` in the terminal that starts the API. Don't put it in `api/local.settings.json`, which is committed.
 
 Questions and whatever the tools read go to Anthropic's API, including anything about children (S33). The conversation stays in the browser tab and isn't stored.
+
+## Wall display
+
+`/display` is a read-only page for the kitchen photoframe (see `../photoframe`): a clock, the weather, today's events, meals and due tasks, the next six days, and this week's chores. It refreshes its data every five minutes and reloads itself once a night to pick up new deploys. Any member can open it to see what the frame shows.
+
+The frame signs in with its own Microsoft account, invited on the Members page with the role **Display**. Nothing is needed in the Azure portal. That role can read only what the page shows, is sent to `/display` from any other address, and is refused everything else by the API, so the frame can't write, chat or see members. Removing it on the Members page cuts the frame off on its next request.
+
+The build targets Chrome 87 because the frame's browser may be old (Chrome 106 is the last for Android 6), so keep newer CSS such as `color-mix` out of the `wall-` styles.
+
+Locally, sign in as **Kitchen display**. A `api/.data/db.json` made before this role existed has no display member: delete it to reseed.
 
 ## Daily recipe intake
 

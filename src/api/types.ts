@@ -1,5 +1,6 @@
 /** Client-side view of the API shapes (section 9). Kept in step with api/src/lib/types.ts by hand. */
-export type Role = 'admin' | 'member'
+/** `display` is the wall screen, which only sees /display. */
+export type Role = 'admin' | 'member' | 'display'
 export type Slot = 'breakfast' | 'lunch' | 'dinner'
 export const SLOTS: Slot[] = ['breakfast', 'lunch', 'dinner']
 export const CATEGORIES = ['Produce', 'Dairy', 'Bakery', 'Household', 'Other'] as const

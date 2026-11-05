@@ -25,6 +25,7 @@ export function seed(familyId: string): BaseDoc[] {
     { ...base('m-jo', 'member'), displayName: 'Jo', email: 'jo@example.com', role: 'admin', colour: PALETTE[1], active: true },
     { ...base('m-charlie', 'member'), displayName: 'Charlie', email: 'charlie@example.com', role: 'member', colour: PALETTE[2], active: true },
     { ...base('m-robin', 'member'), displayName: 'Robin', email: 'robin@example.com', role: 'member', colour: PALETTE[3], active: true },
+    { ...base('m-kitchen', 'member'), displayName: 'Kitchen display', email: 'display@example.com', role: 'display', colour: PALETTE[6], active: true },
   ]
 
   const lists: List[] = [

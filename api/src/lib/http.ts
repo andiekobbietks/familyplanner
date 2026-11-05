@@ -22,6 +22,8 @@ interface RouteOptions {
   roles?: Role[]
   /** Called by a service holding the integration token, not a signed-in member. Needs its own rule in staticwebapp.config.json. */
   integration?: boolean
+  /** Also open to the `display` role. Every route without it refuses that role, so a new route is closed to the wall screen by default. GET only. */
+  display?: boolean
 }
 
 /**
@@ -31,6 +33,7 @@ interface RouteOptions {
  * the principal header (S23). Failed authorisation is logged at warning (S24).
  */
 export function route(name: string, method: HttpMethod, path: string, opts: RouteOptions, handler: Handler): void {
+  if (opts.display && method !== 'GET') throw new Error(`${name}: the display role may only read`)
   app.http(name, {
     methods: [method],
     route: path,
@@ -54,6 +57,7 @@ export async function run(
     // A custom header, because SWA does not reliably pass Authorization through to managed functions.
     const caller = opts.integration ? integrationCaller(req.headers.get('x-integration-token')) : await getCaller(req.headers.get('x-ms-client-principal'), store)
     userId = caller.memberId
+    if (caller.role === 'display' && !opts.display) throw new HttpError(403, 'DISPLAY_READ_ONLY', 'The display can only read')
     if (opts.roles && !opts.roles.includes(caller.role)) throw new HttpError(403, 'FORBIDDEN', 'Admin only')
 
     let body: unknown

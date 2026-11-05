@@ -6,7 +6,8 @@ import { Icon } from '../components/Icons'
 import { MealInput } from '../components/MealInput'
 import { Avatar, usePersonMap } from '../components/People'
 import { QuickAdd } from '../components/QuickAdd'
-import { addDays, dateOfInstant, fmtDayLong, fmtTime, fmtWeekday, mondayOf, relativeDay, todayISO } from '../lib/dates'
+import { addDays, fmtDayLong, fmtTime, fmtWeekday, mondayOf, relativeDay, todayISO } from '../lib/dates'
+import { eventsByDay } from '../lib/events'
 import { degrees, describeWeather } from '../lib/weather'
 import { useSetTaskDone } from './Todos'
 
@@ -37,23 +38,11 @@ export function Home() {
   const plan = [...(thisWeek.data ?? []), ...(mondayOf(lastDay) === mondayOf(today) ? [] : (nextWeek.data ?? []))]
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i))
 
-  const eventsByDay = useMemo(() => {
-    const m = new Map<string, Occurrence[]>()
-    for (const e of events) {
-      const first = e.allDay ? e.start : dateOfInstant(e.start)
-      const last = e.allDay ? e.end : dateOfInstant(e.end)
-      // A multi-day event shows on each day it covers.
-      for (let d = first < today ? today : first; d <= last && d <= lastDay; d = addDays(d, 1)) {
-        if (!m.has(d)) m.set(d, [])
-        m.get(d)!.push(e)
-      }
-    }
-    return m
-  }, [events, today, lastDay])
+  const byDay = useMemo(() => eventsByDay(events, today, lastDay), [events, today, lastDay])
 
   const dayProps = (date: string) => ({
     date,
-    events: eventsByDay.get(date) ?? [],
+    events: byDay.get(date) ?? [],
     plan: plan.filter((p) => p.date === date),
     slots,
     showCalendar: calendars.length > 1,

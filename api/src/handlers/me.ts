@@ -19,8 +19,8 @@ export const patchMe: Handler = async ({ store, caller }, _p, _q, body) => {
   return { body: { ...publicMember(saved), email: saved.email } }
 }
 
-/** Active members' public fields, for pickers and colours. Visible to every member. */
+/** Active members' public fields, for pickers and colours. Visible to every member. The display is not a person, so it can't be picked. */
 export const getPeople: Handler = async ({ store, caller }) => {
   const members = await store.byType<Member>(caller.familyId, 'member')
-  return { body: members.filter((m) => m.active).map(publicMember) }
+  return { body: members.filter((m) => m.active && m.role !== 'display').map(publicMember) }
 }

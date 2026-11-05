@@ -1,4 +1,5 @@
-export type Role = 'admin' | 'member'
+/** `display` is the wall screen: it may only read what the dashboard shows (section 4). */
+export type Role = 'admin' | 'member' | 'display'
 export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings' | 'recipe' | 'chore' | 'choreWeek'
 export type Slot = 'breakfast' | 'lunch' | 'dinner'
 export const SLOTS: Slot[] = ['breakfast', 'lunch', 'dinner']

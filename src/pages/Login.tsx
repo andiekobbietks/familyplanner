@@ -24,6 +24,7 @@ export function Login() {
             <a href={`${login}&as=jo`}>Jo (admin)</a>
             <a href={`${login}&as=charlie`}>Charlie</a>
             <a href={`${login}&as=robin`}>Robin</a>
+            <a href={`${login}&as=display`}>Kitchen display</a>
             <a href={`${login}&as=stranger`}>Stranger</a>
           </p>
         )}

@@ -17,7 +17,7 @@ async function getChore(store: Store, familyId: string, id: string) {
 
 async function activeMemberIds(store: Store, familyId: string) {
   const members = await store.byType<Member>(familyId, 'member')
-  return new Set(members.filter((m) => m.active).map((m) => m.id))
+  return new Set(members.filter((m) => m.active && m.role !== 'display').map((m) => m.id))
 }
 
 export const getChores: Handler = async ({ store, caller }, _p, query) => {

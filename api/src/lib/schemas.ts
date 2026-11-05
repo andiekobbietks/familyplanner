@@ -68,7 +68,7 @@ export const mePatchSchema = z.object({
 
 export const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(200),
-  role: z.enum(['admin', 'member']),
+  role: z.enum(['admin', 'member', 'display']),
 })
 
 export const eraseSchema = z.object({ confirm: z.literal('DELETE') })

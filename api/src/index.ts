@@ -12,12 +12,14 @@ import * as weather from './handlers/weather'
 
 const ADMIN = { roles: ['admin' as const] }
 const ANY = {}
+/** Members, and the wall display, which reads only what its page shows. */
+const VIEW = { display: true }
 
-route('me-get', 'GET', 'me', ANY, me.getMe)
+route('me-get', 'GET', 'me', VIEW, me.getMe)
 route('me-patch', 'PATCH', 'me', ANY, me.patchMe)
-route('people-get', 'GET', 'people', ANY, me.getPeople)
+route('people-get', 'GET', 'people', VIEW, me.getPeople)
 
-route('external-events-list', 'GET', 'external-events', ANY, events.listExternalEvents)
+route('external-events-list', 'GET', 'external-events', VIEW, events.listExternalEvents)
 
 route('lists-get', 'GET', 'lists', ANY, lists.getLists)
 route('lists-create', 'POST', 'lists', ADMIN, lists.createList)
@@ -28,12 +30,12 @@ route('items-clear', 'DELETE', 'lists/{id}/items', ANY, lists.clearChecked)
 route('items-patch', 'PATCH', 'items/{id}', ANY, lists.patchItem)
 route('items-delete', 'DELETE', 'items/{id}', ANY, lists.deleteItem)
 
-route('tasks-get', 'GET', 'tasks', ANY, tasks.getTasks)
+route('tasks-get', 'GET', 'tasks', VIEW, tasks.getTasks)
 route('tasks-create', 'POST', 'tasks', ANY, tasks.createTask)
 route('tasks-patch', 'PATCH', 'tasks/{id}', ANY, tasks.patchTask)
 route('tasks-delete', 'DELETE', 'tasks/{id}', ANY, tasks.deleteTask)
 
-route('plan-get', 'GET', 'plan', ANY, plan.getPlan)
+route('plan-get', 'GET', 'plan', VIEW, plan.getPlan)
 route('plan-copy', 'POST', 'plan/copy-week', ANY, plan.copyWeek)
 route('plan-set', 'PUT', 'plan/{date}/{slot}', ANY, plan.setPlanCell)
 route('plan-clear', 'DELETE', 'plan/{date}/{slot}', ANY, plan.clearPlanCell)
@@ -45,7 +47,7 @@ route('recipes-delete', 'DELETE', 'recipes/{id}', ANY, recipes.deleteRecipe)
 
 route('integration-recipes', 'POST', 'integration/recipes', { integration: true }, recipes.intakeRecipes)
 
-route('chores-get', 'GET', 'chores', ANY, chores.getChores)
+route('chores-get', 'GET', 'chores', VIEW, chores.getChores)
 route('chores-create', 'POST', 'chores', ANY, chores.createChore)
 route('chores-copy', 'POST', 'chores/copy-week', ANY, chores.copyChoreWeek)
 route('chores-patch', 'PATCH', 'chores/{id}', ANY, chores.patchChore)
@@ -53,11 +55,11 @@ route('chores-delete', 'DELETE', 'chores/{id}', ANY, chores.deleteChore)
 route('chores-assign', 'PUT', 'chores/{id}/weeks/{week}', ANY, chores.assignChore)
 route('chores-unassign', 'DELETE', 'chores/{id}/weeks/{week}', ANY, chores.unassignChore)
 
-route('weather-get', 'GET', 'weather', ANY, weather.getWeather)
+route('weather-get', 'GET', 'weather', VIEW, weather.getWeather)
 
 route('chat-post', 'POST', 'chat', ANY, chat.chat)
 
-route('settings-get', 'GET', 'settings', ANY, admin.getSettings)
+route('settings-get', 'GET', 'settings', VIEW, admin.getSettings)
 route('settings-patch', 'PATCH', 'settings', ADMIN, admin.patchSettings)
 
 route('members-get', 'GET', 'members', ADMIN, admin.getMembers)

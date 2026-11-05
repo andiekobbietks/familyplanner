@@ -3,6 +3,7 @@ import { RequireMember } from './auth'
 import { Layout } from './components/Layout'
 import { Calendar } from './pages/Calendar'
 import { Chat } from './pages/Chat'
+import { Display } from './pages/Display'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
 import { MealPlan } from './pages/MealPlan'
@@ -22,15 +23,32 @@ function AdminOnly({ children }: { children: JSX.Element }) {
   return me.role === 'admin' ? children : <Navigate to="/" replace />
 }
 
+/** The display account only ever sees the wall page, whatever address it opens. */
+function NotDisplay({ children }: { children: JSX.Element }) {
+  const { data: me, isLoading } = useMe()
+  if (isLoading) return <div className="loading">Loading…</div>
+  return me?.role === 'display' ? <Navigate to="/display" replace /> : children
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/not-a-member" element={<NotAMember />} />
       <Route
+        path="/display"
         element={
           <RequireMember>
-            <Layout />
+            <Display />
+          </RequireMember>
+        }
+      />
+      <Route
+        element={
+          <RequireMember>
+            <NotDisplay>
+              <Layout />
+            </NotDisplay>
           </RequireMember>
         }
       >

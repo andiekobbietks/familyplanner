@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { mutations, useMe, useMembers } from '../api/hooks'
+import type { Role } from '../api/types'
 import { Avatar } from '../components/People'
 import { useToast } from '../components/Toast'
 import { fmtDay } from '../lib/dates'
@@ -11,7 +12,7 @@ export function Members() {
   const qc = useQueryClient()
   const toast = useToast()
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<'admin' | 'member'>('member')
+  const [role, setRole] = useState<Role>('member')
   const [instructions, setInstructions] = useState('')
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['members'] })
@@ -64,7 +65,7 @@ export function Members() {
                       className="btn sm danger"
                       type="button"
                       onClick={async () => {
-                        if (!confirm(`Remove ${m.displayName}? Their past actions stay attributed. Remember to also remove their role in the Azure portal.`)) return
+                        if (!confirm(`Remove ${m.displayName}? Their past actions stay attributed.`)) return
                         await mutations.removeMember(m.id)
                         invalidate()
                       }}
@@ -88,9 +89,10 @@ export function Members() {
           </label>
           <label className="field">
             <span>Role</span>
-            <select value={role} onChange={(e) => setRole(e.target.value as 'admin' | 'member')}>
+            <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
               <option value="member">Member</option>
               <option value="admin">Admin</option>
+              <option value="display">Display (wall screen, read-only)</option>
             </select>
           </label>
         </div>
@@ -99,7 +101,7 @@ export function Members() {
         </button>
         {instructions && <p className="small warn" style={{ marginTop: '0.75rem' }}>{instructions}</p>}
         <p className="muted small" style={{ marginTop: '0.75rem' }}>
-          Access itself is granted by Static Web Apps: the invitation link comes from the Azure portal and expires after 24 hours. This form pre-registers the member so their name and colour are ready on first login.
+          This record is the invitation: they sign in with the Microsoft account for that address, and nothing is needed in the Azure portal. A display account sees only the wall page and can't change anything, use chat or see members.
         </p>
       </form>
     </>
