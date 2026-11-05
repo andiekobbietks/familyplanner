@@ -4,11 +4,15 @@ import { useCalendarEvents, useChores, usePlan, useSettings, useTasks, useWeathe
 import type { Occurrence, PlanEntry, Slot, Weather } from '../api/types'
 import { Icon } from '../components/Icons'
 import { Avatar, usePersonMap } from '../components/People'
-import { addDays, fmtDayLong, fmtTime, fmtWeekday, mondayOf, relativeDay, todayISO } from '../lib/dates'
+import { addDays, fmtDayLong, fmtMonth, fmtTime, fmtWeekday, mondayOf, monthGrid, relativeDay, todayISO } from '../lib/dates'
 import { eventsByDay } from '../lib/events'
 import { degrees, describeWeather } from '../lib/weather'
 
 const REFRESH_MS = 5 * 60_000
+/** The month view is a glance: after this long the frame goes back to today on its own. */
+const MONTH_FOR_MS = 5 * 60_000
+/** Events a month cell has room for at 1280×800, by the number of weeks the month spans. */
+const MONTH_CELL_EVENTS: Record<number, number> = { 4: 4, 5: 3, 6: 2 }
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
 
 /** The current time, ticking every 20 seconds, so the clock and "today" roll over on their own. */
@@ -31,6 +35,13 @@ export function Display() {
   const today = todayISO()
   const lastDay = addDays(today, 6)
   const qc = useQueryClient()
+  const [view, setView] = useState<'today' | 'month'>('today')
+
+  useEffect(() => {
+    if (view !== 'month') return
+    const t = setTimeout(() => setView('today'), MONTH_FOR_MS)
+    return () => clearTimeout(t)
+  }, [view])
 
   const { events, calendars, unavailable } = useCalendarEvents(today, lastDay)
   const { data: settings } = useSettings()
@@ -65,8 +76,15 @@ export function Display() {
           <div className="wall-date">{fmtDayLong(today)}</div>
         </div>
         {weather?.forecast && <WallWeather weather={weather} today={today} />}
+        <button type="button" className="wall-flip" aria-pressed={view === 'month'} onClick={() => setView(view === 'month' ? 'today' : 'month')}>
+          <Icon name={view === 'month' ? 'home' : 'calendar'} size={30} />
+          {view === 'month' ? 'Today' : 'Month'}
+        </button>
       </header>
 
+      {view === 'month' ? (
+        <MonthView today={today} nowMs={now.getTime()} />
+      ) : (
       <main className="wall-body">
         <section className="wall-card wall-today" aria-labelledby="wall-today-h">
           <h2 id="wall-today-h">Today</h2>
@@ -103,6 +121,7 @@ export function Display() {
 
         <Chores week={mondayOf(today)} />
       </main>
+      )}
     </div>
   )
 }
@@ -210,5 +229,53 @@ function Chores({ week }: { week: string }) {
         })}
       </ul>
     </section>
+  )
+}
+
+/** The whole of this month, for planning at a glance. Read-only like the rest of the wall. */
+function MonthView({ today, nowMs }: { today: string; nowMs: number }) {
+  const { month, days } = monthGrid(today)
+  const from = days[0]
+  const to = days[days.length - 1]
+  const { events, unavailable } = useCalendarEvents(from, to)
+  const byDay = useMemo(() => eventsByDay(events, from, to), [events, from, to])
+  return (
+    <main className="wall-month-wrap" aria-label={fmtMonth(today)}>
+      <h2 className="wall-month-title">
+        {fmtMonth(today)}
+        {unavailable && <span className="wall-note"> · Google calendar unavailable</span>}
+      </h2>
+      <div className="wall-month" style={{ gridTemplateRows: `auto repeat(${days.length / 7}, minmax(0, 1fr))` }}>
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+          <div className="wall-dow" key={d}>
+            {d}
+          </div>
+        ))}
+        {days.map((d) => {
+          const list = byDay.get(d) ?? []
+          const shown = list.slice(0, MONTH_CELL_EVENTS[days.length / 7])
+          return (
+            <div key={d} className={`wall-cell${d.slice(0, 7) !== month ? ' wall-other' : ''}${d === today ? ' wall-is-today' : ''}${d < today ? ' wall-past' : ''}`}>
+              <span className="wall-cell-head">
+                <span className="wall-num">{Number(d.slice(8))}</span>
+                {shown.length < list.length && <span className="wall-more">+{list.length - shown.length} more</span>}
+              </span>
+              {shown.map((e) =>
+                e.allDay ? (
+                  <span key={`${e.id}-${e.occurrenceDate}`} className="wall-chip wall-chip-allday" style={{ background: e.external.colour }}>
+                    {e.title}
+                  </span>
+                ) : (
+                  <span key={`${e.id}-${e.occurrenceDate}`} className={`wall-chip${d === today && Date.parse(e.end) < nowMs ? ' wall-gone' : ''}`}>
+                    <span className="wall-dot" style={{ background: e.external.colour }} />
+                    <b>{fmtTime(e.start)}</b> {e.title}
+                  </span>
+                ),
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </main>
   )
 }

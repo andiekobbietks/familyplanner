@@ -54,3 +54,14 @@ export function relativeDay(date: string): string {
   if (date === addDays(today, -1)) return 'Yesterday'
   return fmtDay(date)
 }
+
+/** The Monday-first grid for the month containing `date`: only as many whole weeks as the month needs (4 to 6). */
+export function monthGrid(date: string): { month: string; days: string[] } {
+  const first = date.slice(0, 8) + '01'
+  const start = mondayOf(first)
+  const next = parseISODate(first)
+  next.setMonth(next.getMonth() + 1)
+  const lastDay = addDays(isoDate(next), -1)
+  const weeks = Math.ceil((Math.round((parseISODate(lastDay).getTime() - parseISODate(start).getTime()) / 86400000) + 1) / 7)
+  return { month: date.slice(0, 7), days: Array.from({ length: weeks * 7 }, (_, i) => addDays(start, i)) }
+}

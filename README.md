@@ -73,7 +73,7 @@ Questions and whatever the tools read go to Anthropic's API, including anything 
 
 ## Wall display
 
-`/display` is a read-only page for the kitchen photoframe (see `../photoframe`): a clock, the weather, today's events, meals and due tasks, the next six days, and this week's chores. It refreshes its data every five minutes and reloads itself once a night to pick up new deploys. Any member can open it to see what the frame shows.
+`/display` is a read-only page for the kitchen photoframe (see `../photoframe`): a clock, the weather, today's events, meals and due tasks, the next six days, and this week's chores. A large **Month** button in the corner flips to the whole month's calendar and back. The month view returns to the dashboard on its own after five minutes. The page refreshes its data every five minutes and reloads itself once a night to pick up new deploys. Any member can open it to see what the frame shows.
 
 The frame signs in with its own Microsoft account, invited on the Members page with the role **Display**. Nothing is needed in the Azure portal. That role can read only what the page shows, is sent to `/display` from any other address, and is refused everything else by the API, so the frame can't write, chat or see members. Removing it on the Members page cuts the frame off on its next request.
 
