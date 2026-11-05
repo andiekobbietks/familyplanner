@@ -73,7 +73,7 @@ Questions and whatever the tools read go to Anthropic's API, including anything 
 
 ## Wall display
 
-`/display` is a read-only page for the kitchen photoframe (see `../photoframe`): a clock, the weather, today's events, meals and due tasks, the next six days, and this week's chores. A large **Month** button in the corner flips to the whole month's calendar and back. The month view returns to the dashboard on its own after five minutes. The page refreshes its data every five minutes and reloads itself once a night to pick up new deploys. Any member can open it to see what the frame shows.
+`/display` is a read-only page for the kitchen photoframe (see `../photoframe`): a clock, the weather, today's events, meals and due tasks, the next six days, and this week's chores. A large **Month** button in the corner flips to the whole month's calendar and back. The month view returns to the dashboard on its own after five minutes. The page refreshes its data every minute and reloads itself once a night to pick up new deploys. Any member can open it to see what the frame shows.
 
 The frame signs in with its own Microsoft account, invited on the Members page with the role **Display**. Nothing is needed in the Azure portal. That role can read only what the page shows, is sent to `/display` from any other address, and is refused everything else by the API, so the frame can't write, chat or see members. Removing it on the Members page cuts the frame off on its next request.
 
@@ -115,7 +115,7 @@ Calendars are read-only, and the API fetches them from Google so the browser nev
 
    For several calendars, set `GOOGLE_CALENDARS` by hand to a longer list: `[{"label":"A","url":"..."},{"label":"B","url":"..."}]`.
 
-Changes in Google appear in the app within 15 minutes. If the address ever leaks, reset it in Google Calendar and repeat step 2.
+Changes in Google appear in the app within 5 minutes. If the address ever leaks, reset it in Google Calendar and repeat step 2.
 
 ### Adding events from Outlook
 
@@ -125,7 +125,7 @@ Invites sent to `you+family@gmail.com` from any calendar system land on the Fami
 2. At script.google.com create a project and replace `Code.gs` with `infra/family-invites.gs`. In Project Settings, show the `appsscript.json` manifest, then replace it with `infra/family-invites.appsscript.json`. That file limits the script to read-only Gmail and calendar events. Approving anything wider means something is wrong.
 3. Run `run` once and approve the permissions. Google warns that the app is unverified because the script is your own: choose Advanced, then continue. The consent screen should list viewing email, viewing and editing calendar events, and running when you are not present. Then run `installTrigger` once to start the five-minute timer.
 
-An invite reaches Google Calendar within five minutes and the app up to 15 minutes after that. Moves and cancellations only travel if Outlook sends the update, so choose **Send update** or **Send cancellation** when asked. A failed invite is retried on every run for three days, and errors appear under Executions in the script project.
+An invite reaches Google Calendar within five minutes and the app up to 5 minutes after that. Moves and cancellations only travel if Outlook sends the update, so choose **Send update** or **Send cancellation** when asked. A failed invite is retried on every run for three days, and errors appear under Executions in the script project.
 
 The script is not deployed by CI. After changing it here, paste it into the project again.
 

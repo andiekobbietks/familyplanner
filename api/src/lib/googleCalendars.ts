@@ -25,7 +25,7 @@ export interface ExternalOccurrence {
 }
 
 const COLOURS = ['#4f46e5', '#0f766e', '#a16207', '#be123c']
-const CACHE_MS = 15 * 60_000
+const CACHE_MS = 5 * 60_000
 const RETRY_MS = 60_000
 const FETCH_TIMEOUT_MS = 8_000
 const MAX_FEED_BYTES = 10_000_000
@@ -155,7 +155,7 @@ async function fetchFeed(url: string): Promise<Parsed> {
   return parseFeed(text)
 }
 
-/** Held in memory for up to 15 minutes and never written to the database. A failed read keeps the last good copy. */
+/** Held in memory for up to 5 minutes and never written to the database. A failed read keeps the last good copy. */
 function loadFeed(url: string, now: number): Promise<Parsed | undefined> {
   const hit = cache.get(url)
   if (hit && now - hit.at < (hit.failed ? RETRY_MS : CACHE_MS)) return Promise.resolve(hit.parsed)

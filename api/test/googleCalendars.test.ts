@@ -158,12 +158,12 @@ describe('fetching', () => {
     expect(r.events.map((e) => e.title)).toEqual(['Bonfire night', 'Football', 'Football'])
     expect(r.events[1].start < r.events[2].start).toBe(true)
   })
-  it('caches for 15 minutes', async () => {
+  it('caches for 5 minutes', async () => {
     fetchMock.mockImplementation(async () => ok())
     await read()
-    await read(T0 + 14 * 60_000)
+    await read(T0 + 4 * 60_000)
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    await read(T0 + 16 * 60_000)
+    await read(T0 + 6 * 60_000)
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
   it('A9d: a failed feed reports unavailable without throwing', async () => {

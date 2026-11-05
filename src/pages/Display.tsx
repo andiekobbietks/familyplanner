@@ -8,7 +8,8 @@ import { addDays, fmtDayLong, fmtMonth, fmtTime, fmtWeekday, mondayOf, monthGrid
 import { eventsByDay } from '../lib/events'
 import { degrees, describeWeather } from '../lib/weather'
 
-const REFRESH_MS = 5 * 60_000
+/** How often the wall page refetches its data. */
+const REFRESH_MS = 60_000
 /** The month view is a glance: after this long the frame goes back to today on its own. */
 const MONTH_FOR_MS = 5 * 60_000
 /** Events a month cell has room for at 1280×800, by the number of weeks the month spans. */

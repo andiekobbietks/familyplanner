@@ -97,7 +97,7 @@ Google Calendar is the single source of truth for events. The planner displays t
 - With two or more calendars connected, events carry their calendar's label as well as its colour (never colour alone) and the calendar can be filtered by calendar. "All" is the default.
 - Invites sent to the family address from any calendar system reach the Family calendar through a small script in the owner's Google account (`infra/family-invites.gs`), so events can be added remotely while Google stays the source of truth.
 - Connected calendars are configured by the `GOOGLE_CALENDARS` application setting, a JSON list of `{ "label", "url" }` (S19), not through the UI. Every member sees every connected calendar.
-- Feed contents are cached in memory for up to 15 minutes and are not written to the database, so a Google event's changes appear within 15 minutes and the export (A10) is unaffected.
+- Feed contents are cached in memory for up to 5 minutes and are not written to the database, so a Google event's changes appear within 5 minutes and the export (A10) is unaffected.
 - If a feed cannot be fetched or parsed, the rest of the planner keeps working and the calendar shows "Google calendar unavailable" rather than an error. The last good cached copy may be shown instead.
 
 Events created before this decision remain as `event` documents, are no longer displayed, and appear in the export.
