@@ -458,6 +458,8 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 .wall-list li { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0; font-size: 1.2rem; border-bottom: 1px solid var(--line); }
 .wall-list li:last-child { border-bottom: 0; }
 .wall-overdue { color: var(--danger); font-size: 0.95rem; font-weight: 700; }
+.wall-due { color: var(--muted); font-size: 0.95rem; font-weight: 600; }
+.wall-more-todos { margin: 0.3rem 0 0; font-size: 1rem; }
 .wall-days li { display: flex; align-items: center; gap: 0.9rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line); }
 .wall-days li:last-child { border-bottom: 0; }
 .wall-badge { display: flex; flex-direction: column; align-items: center; width: 3rem; flex-shrink: 0; line-height: 1.1; }

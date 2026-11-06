@@ -49,7 +49,7 @@ Explicitly out of scope for the first release:
 |---|---|---|
 | `admin` | Parents | Everything a member can do, plus invite and remove members, delete lists, export all data. |
 | `member` | Other family members | Create, edit and complete list items and tasks. See everything. |
-| `display` | The kitchen wall screen (photoframe) | Read only what `/display` shows: calendar, today's meals, tasks due, the default shopping list's unchecked items, the coming week, the meal plan, recipes, weather and chores. No writes, chat, other lists, members or export. Sees only the `/display` page. |
+| `display` | The kitchen wall screen (photoframe) | Read only what `/display` shows: calendar, today's meals, open to-dos (due or overdue, undated, and the coming week), the default shopping list's unchecked items, the coming week, the meal plan, recipes, weather and chores. No writes, chat, other lists, members or export. Sees only the `/display` page. |
 
 Notes:
 

@@ -8,6 +8,7 @@ import { Avatar, usePersonMap } from '../components/People'
 import { addDays, fmtDayLong, fmtMonth, fmtTime, fmtWeekday, mondayOf, monthGrid, relativeDay, todayISO } from '../lib/dates'
 import { eventsByDay } from '../lib/events'
 import { findRecipe, matchesSearch } from '../lib/recipes'
+import { wallTodos } from '../lib/tasks'
 import { RecipeText } from '../components/RecipeText'
 import { degrees, describeWeather } from '../lib/weather'
 
@@ -26,6 +27,8 @@ const VIEWS: { id: View; label: string; icon: IconName }[] = [
 ]
 /** Events a month cell has room for at 1280×800, by the number of weeks the month spans. */
 const MONTH_CELL_EVENTS: Record<number, number> = { 4: 4, 5: 3, 6: 2 }
+/** To-dos on the Today card before the rest collapse to "+N more", so the shopping list keeps its room. */
+const TODOS_SHOWN = 6
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
 
 /** The current time, ticking every 20 seconds, so the clock and "today" roll over on their own. */
@@ -114,7 +117,7 @@ function DisplayBoard() {
   const slots: Slot[] = settings?.breakfastEnabled ? ['breakfast', 'lunch', 'dinner'] : ['lunch', 'dinner']
   const plan = [...(thisWeek.data ?? []), ...(mondayOf(lastDay) === mondayOf(today) ? [] : (nextWeek.data ?? []))]
   const byDay = useMemo(() => eventsByDay(events, today, lastDay), [events, today, lastDay])
-  const due = tasks.filter((t) => t.dueDate && t.dueDate <= today)
+  const todos = wallTodos(tasks, today)
   const showCalendar = calendars.length > 1
 
   return (
@@ -158,21 +161,22 @@ function DisplayBoard() {
             {unavailable && <p className="wall-note">Google calendar unavailable</p>}
             <Agenda events={byDay.get(today) ?? []} showCalendar={showCalendar} nowMs={now.getTime()} />
             <Meals plan={plan.filter((p) => p.date === today)} slots={slots} />
-            {due.length > 0 && (
+            {todos.length > 0 && (
               <>
                 <h3>To do</h3>
                 <ul className="wall-list">
-                  {due.map((t) => {
+                  {todos.slice(0, TODOS_SHOWN).map((t) => {
                     const who = people.get(t.assignee ?? '')
                     return (
                       <li key={t.id}>
                         <span className="wall-grow">{t.title}</span>
-                        {t.dueDate! < today && <span className="wall-overdue">{relativeDay(t.dueDate!)}</span>}
+                        {t.dueDate && t.dueDate !== today && <span className={t.dueDate < today ? 'wall-overdue' : 'wall-due'}>{relativeDay(t.dueDate)}</span>}
                         {who && <Avatar person={who} size={26} />}
                       </li>
                     )
                   })}
                 </ul>
+                {todos.length > TODOS_SHOWN && <p className="wall-muted wall-more-todos">+{todos.length - TODOS_SHOWN} more</p>}
               </>
             )}
           </section>
