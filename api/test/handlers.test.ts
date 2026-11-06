@@ -8,7 +8,7 @@ import { seed } from '../src/lib/seed'
 import { setPlanCell, copyWeek, getPlan } from '../src/handlers/plan'
 import { getPeople, patchMe } from '../src/handlers/me'
 import { createTask, deleteTask, patchTask } from '../src/handlers/tasks'
-import { addItem, deleteItem, getItems, patchItem } from '../src/handlers/lists'
+import { addItem, deleteItem, getItems, getShopping, patchItem } from '../src/handlers/lists'
 import { erase, exportAll, getMembers, invite, removeMember } from '../src/handlers/admin'
 import { getWeather } from '../src/handlers/weather'
 import { assignChore, copyChoreWeek, createChore, deleteChore, getChores, patchChore, unassignChore } from '../src/handlers/chores'
@@ -422,5 +422,29 @@ describe('errors', () => {
   it('HttpError carries status and code', () => {
     const e = new HttpError(403, 'FORBIDDEN', 'no')
     expect(e.status).toBe(403)
+  })
+})
+
+describe('the wall shopping panel', () => {
+  type Shopping = { id: string; name: string; items: { name: string; category?: string }[] } | null
+  const shopping = async () => (await getShopping(ctx, {}, q(), undefined)).body as Shopping
+
+  it('shows the default list, unchecked items only, by category', async () => {
+    const s = await shopping()
+    expect(s?.id).toBe('l-groceries')
+    expect(s?.items.map((i) => i.name)).toEqual(['Bananas', 'Milk', 'Bread', 'Washing-up liquid', 'Birthday candles'])
+  })
+
+  it('follows the default list setting, and falls back to the first list', async () => {
+    const settings = (await store.get<BaseDoc & { defaultListId?: string }>('home', 'settings', 'settings'))!
+    await store.upsert({ ...settings, defaultListId: 'l-hardware' } as never)
+    expect((await shopping())?.items.map((i) => i.name)).toEqual(['Light bulbs'])
+    await store.upsert({ ...settings, defaultListId: undefined } as never)
+    expect((await shopping())?.id).toBe('l-groceries')
+  })
+
+  it('is null with no lists', async () => {
+    for (const l of await store.byType<List>('home', 'list')) await store.delete('home', l.id)
+    expect(await shopping()).toBeNull()
   })
 })

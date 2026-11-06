@@ -32,6 +32,7 @@ view('people-get', 'people', me.getPeople)
 view('external-events-list', 'external-events', events.listExternalEvents)
 
 route('lists-get', 'GET', 'lists', ANY, lists.getLists)
+view('shopping-get', 'shopping', lists.getShopping)
 route('lists-create', 'POST', 'lists', ADMIN, lists.createList)
 route('lists-delete', 'DELETE', 'lists/{id}', ADMIN, lists.deleteList)
 route('items-get', 'GET', 'lists/{id}/items', ANY, lists.getItems)

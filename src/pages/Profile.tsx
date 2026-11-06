@@ -42,6 +42,7 @@ export function Profile() {
         <label className="field">
           <span>Display name</span>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
+          <small className="muted">What the family sees: on chores, tasks, the shopping list and the wall display.</small>
         </label>
         <label className="field">
           <span>Colour</span>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '../api/client'
-import { useCalendarEvents, useChores, usePlan, useSettings, useTasks, useWeather } from '../api/hooks'
+import { useCalendarEvents, useChores, usePlan, useSettings, useShopping, useTasks, useWeather } from '../api/hooks'
 import type { Me, Occurrence, PlanEntry, Slot, Weather } from '../api/types'
 import { Icon } from '../components/Icons'
 import { Avatar, usePersonMap } from '../components/People'
@@ -27,14 +27,13 @@ function useNow() {
   return now
 }
 
-/**
- * The wall display (photoframe). Read-only, no links or controls, and it looks after itself: data refreshes every
- * five minutes, and the page reloads once a night so a long-running screen picks up new deploys. It reads only
- * the routes open to the `display` role, so any member can open it too to see what the frame shows.
- */
 const notPaired = (e: unknown) => e instanceof ApiError && e.code === 'NOT_PAIRED'
 
 /**
+ * The wall display (photoframe). Read-only apart from the Month button, and it looks after itself: data refreshes
+ * every minute, and the page reloads once a night so a long-running screen picks up new deploys. It reads only
+ * the routes open to the `display` role, so any member can open it too to see what the frame shows.
+ *
  * The wall page is open without a sign-in (S34): a paired display presents its key cookie,
  * and a member their session. With neither, say so rather than send the frame to a sign-in page.
  * The data refresh re-checks this too, so a revoked display shows the message within a minute.
@@ -118,29 +117,32 @@ function DisplayBoard() {
         <MonthView today={today} nowMs={now.getTime()} />
       ) : (
       <main className="wall-body">
-        <section className="wall-card wall-today" aria-labelledby="wall-today-h">
-          <h2 id="wall-today-h">Today</h2>
-          {unavailable && <p className="wall-note">Google calendar unavailable</p>}
-          <Agenda events={byDay.get(today) ?? []} showCalendar={showCalendar} nowMs={now.getTime()} />
-          <Meals plan={plan.filter((p) => p.date === today)} slots={slots} />
-          {due.length > 0 && (
-            <>
-              <h3>To do</h3>
-              <ul className="wall-list">
-                {due.map((t) => {
-                  const who = people.get(t.assignee ?? '')
-                  return (
-                    <li key={t.id}>
-                      <span className="wall-grow">{t.title}</span>
-                      {t.dueDate! < today && <span className="wall-overdue">{relativeDay(t.dueDate!)}</span>}
-                      {who && <Avatar person={who} size={26} />}
-                    </li>
-                  )
-                })}
-              </ul>
-            </>
-          )}
-        </section>
+        <div className="wall-col">
+          <section className="wall-card wall-today" aria-labelledby="wall-today-h">
+            <h2 id="wall-today-h">Today</h2>
+            {unavailable && <p className="wall-note">Google calendar unavailable</p>}
+            <Agenda events={byDay.get(today) ?? []} showCalendar={showCalendar} nowMs={now.getTime()} />
+            <Meals plan={plan.filter((p) => p.date === today)} slots={slots} />
+            {due.length > 0 && (
+              <>
+                <h3>To do</h3>
+                <ul className="wall-list">
+                  {due.map((t) => {
+                    const who = people.get(t.assignee ?? '')
+                    return (
+                      <li key={t.id}>
+                        <span className="wall-grow">{t.title}</span>
+                        {t.dueDate! < today && <span className="wall-overdue">{relativeDay(t.dueDate!)}</span>}
+                        {who && <Avatar person={who} size={26} />}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </>
+            )}
+          </section>
+          <ShoppingPanel />
+        </div>
 
         <section className="wall-card wall-week" aria-labelledby="wall-week-h">
           <h2 id="wall-week-h">Coming up</h2>
@@ -260,6 +262,32 @@ function Chores({ week }: { week: string }) {
           )
         })}
       </ul>
+    </section>
+  )
+}
+
+/** The default shopping list's unchecked items, under Today, so the wall shows what to pick up. */
+function ShoppingPanel() {
+  const { data } = useShopping()
+  if (!data) return null
+  return (
+    <section className="wall-card wall-shopping" aria-labelledby="wall-shopping-h">
+      <h2 id="wall-shopping-h">
+        {data.name}
+        {data.items.length > 0 && <span className="wall-count">{data.items.length}</span>}
+      </h2>
+      {data.items.length === 0 ? (
+        <p className="wall-muted">Nothing to buy.</p>
+      ) : (
+        <ul className="wall-shop">
+          {data.items.map((i) => (
+            <li key={i.id}>
+              {i.name}
+              {i.note && <span className="wall-muted"> · {i.note}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }

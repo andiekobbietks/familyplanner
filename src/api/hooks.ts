@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { ChatMessage, Chore, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Task, Weather } from './types'
+import type { ChatMessage, Chore, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, Weather } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
 export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => api<Settings>('/settings'), staleTime: 60_000 })
+export const useShopping = () => useQuery({ queryKey: ['shopping'], queryFn: () => api<Shopping | null>('/shopping') })
 export const useLists = () => useQuery({ queryKey: ['lists'], queryFn: () => api<List[]>('/lists') })
 
 export const useItems = (listId: string | undefined, poll = false) =>

@@ -1,7 +1,7 @@
 import { notFound } from '../lib/errors'
 import type { Handler } from '../lib/http'
 import { itemPatchSchema, itemSchema, listSchema, parse } from '../lib/schemas'
-import type { Item, List } from '../lib/types'
+import { CATEGORIES, type Item, type List, type Settings } from '../lib/types'
 import { nowIso, stamp, touch } from '../lib/util'
 
 export const getLists: Handler = async ({ store, caller }) => {
@@ -79,4 +79,25 @@ export const clearChecked: Handler = async ({ store, caller }, params, query) =>
   let removed = 0
   for (const i of items) if (i.listId === list.id && i.checked) (await store.delete(caller.familyId, i.id), removed++)
   return { body: { removed } }
+}
+
+/**
+ * The wall's shopping panel: the default list (else the first), with its unchecked items only,
+ * by category then when they were added. Just what the panel shows, so the display reads no other list.
+ */
+export const getShopping: Handler = async ({ store, caller }) => {
+  const [lists, items, settings] = await Promise.all([
+    store.byType<List>(caller.familyId, 'list'),
+    store.byType<Item>(caller.familyId, 'item'),
+    store.get<Settings>(caller.familyId, 'settings', 'settings'),
+  ])
+  const open = lists.filter((l) => !l.archived).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+  const list = open.find((l) => l.id === settings?.defaultListId) ?? open[0]
+  if (!list) return { body: null }
+  const rank = (c?: string) => (c ? CATEGORIES.indexOf(c as (typeof CATEGORIES)[number]) : CATEGORIES.length)
+  const mine = items
+    .filter((i) => i.listId === list.id && !i.checked)
+    .sort((a, b) => rank(a.category) - rank(b.category) || a.createdAt.localeCompare(b.createdAt))
+    .map((i) => ({ id: i.id, name: i.name, note: i.note, category: i.category }))
+  return { body: { id: list.id, name: list.name, items: mine } }
 }

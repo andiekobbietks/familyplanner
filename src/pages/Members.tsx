@@ -165,7 +165,11 @@ function Displays() {
                         type="button"
                         onClick={async () => {
                           if (!confirm(`Revoke ${d.name}? It stops showing the planner within a minute.`)) return
-                          await mutations.revokeDisplay(d.id)
+                          try {
+                            await mutations.revokeDisplay(d.id)
+                          } catch (err) {
+                            toast((err as Error).message)
+                          }
                           refresh()
                         }}
                       >

@@ -65,6 +65,12 @@ export interface List {
   uncheckedCount: number
   recentNames: string[]
 }
+/** The wall's shopping panel: the default list's unchecked items. */
+export interface Shopping {
+  id: string
+  name: string
+  items: { id: string; name: string; note?: string; category?: Category }[]
+}
 export interface Item {
   id: string
   listId: string
