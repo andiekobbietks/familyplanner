@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '../api/client'
 import { useCalendarEvents, useChores, usePlan, useRecipes, useSettings, useShopping, useTasks, useWeather } from '../api/hooks'
-import type { Me, Occurrence, PlanEntry, Slot, Weather } from '../api/types'
+import type { Me, Occurrence, PlanEntry, Slot, Task, Weather } from '../api/types'
 import { Icon, type IconName } from '../components/Icons'
 import { Avatar, usePersonMap } from '../components/People'
 import { addDays, fmtDayLong, fmtMonth, fmtTime, fmtWeekday, mondayOf, monthGrid, relativeDay, todayISO } from '../lib/dates'
@@ -101,7 +101,6 @@ function DisplayBoard() {
   const { data: tasks = [] } = useTasks('all')
   const thisWeek = usePlan(mondayOf(today))
   const nextWeek = usePlan(mondayOf(lastDay))
-  const people = usePersonMap()
 
   useEffect(() => {
     const t = setInterval(() => void qc.invalidateQueries(), REFRESH_MS)
@@ -161,24 +160,7 @@ function DisplayBoard() {
             {unavailable && <p className="wall-note">Google calendar unavailable</p>}
             <Agenda events={byDay.get(today) ?? []} showCalendar={showCalendar} nowMs={now.getTime()} />
             <Meals plan={plan.filter((p) => p.date === today)} slots={slots} />
-            {todos.length > 0 && (
-              <>
-                <h3>To do</h3>
-                <ul className="wall-list">
-                  {todos.slice(0, TODOS_SHOWN).map((t) => {
-                    const who = people.get(t.assignee ?? '')
-                    return (
-                      <li key={t.id}>
-                        <span className="wall-grow">{t.title}</span>
-                        {t.dueDate && t.dueDate !== today && <span className={t.dueDate < today ? 'wall-overdue' : 'wall-due'}>{relativeDay(t.dueDate)}</span>}
-                        {who && <Avatar person={who} size={26} />}
-                      </li>
-                    )
-                  })}
-                </ul>
-                {todos.length > TODOS_SHOWN && <p className="wall-muted wall-more-todos">+{todos.length - TODOS_SHOWN} more</p>}
-              </>
-            )}
+            <TodoList todos={todos} today={today} />
           </section>
           <ShoppingPanel />
         </div>
@@ -305,21 +287,52 @@ function Chores({ week }: { week: string }) {
   )
 }
 
-/** The default shopping list's unchecked items, under Today, so the wall shows what to pick up. */
-function ShoppingPanel() {
-  const { data } = useShopping()
-  if (!data) return null
+/** The Today card's to-dos. Always shown, so an empty list reads as done rather than missing. */
+export function TodoList({ todos, today }: { todos: Task[]; today: string }) {
+  const people = usePersonMap()
+  return (
+    <>
+      <h3>To do</h3>
+      {todos.length === 0 ? (
+        <p className="wall-muted">Nothing to do.</p>
+      ) : (
+        <>
+          <ul className="wall-list">
+            {todos.slice(0, TODOS_SHOWN).map((t) => {
+              const who = people.get(t.assignee ?? '')
+              return (
+                <li key={t.id}>
+                  <span className="wall-grow">{t.title}</span>
+                  {t.dueDate && t.dueDate !== today && <span className={t.dueDate < today ? 'wall-overdue' : 'wall-due'}>{relativeDay(t.dueDate)}</span>}
+                  {who && <Avatar person={who} size={26} />}
+                </li>
+              )
+            })}
+          </ul>
+          {todos.length > TODOS_SHOWN && <p className="wall-muted wall-more-todos">+{todos.length - TODOS_SHOWN} more</p>}
+        </>
+      )}
+    </>
+  )
+}
+
+/** The default shopping list's unchecked items, under Today, so the wall shows what to pick up. Always shown, even when empty. */
+export function ShoppingPanel() {
+  const { data, isSuccess } = useShopping()
+  const items = data?.items ?? []
   return (
     <section className="wall-card wall-shopping" aria-labelledby="wall-shopping-h">
       <h2 id="wall-shopping-h">
-        {data.name}
-        {data.items.length > 0 && <span className="wall-count">{data.items.length}</span>}
+        {data?.name ?? 'Shopping'}
+        {items.length > 0 && <span className="wall-count">{items.length}</span>}
       </h2>
-      {data.items.length === 0 ? (
+      {isSuccess && !data ? (
+        <p className="wall-muted">No shopping list yet.</p>
+      ) : items.length === 0 ? (
         <p className="wall-muted">Nothing to buy.</p>
       ) : (
         <ul className="wall-shop">
-          {data.items.map((i) => (
+          {items.map((i) => (
             <li key={i.id}>
               {i.name}
               {i.note && <span className="wall-muted"> · {i.note}</span>}
