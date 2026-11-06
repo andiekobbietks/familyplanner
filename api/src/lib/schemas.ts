@@ -82,6 +82,10 @@ export const chatSchema = z.object({
     .refine((m) => m[0]?.role === 'user' && m.at(-1)?.role === 'user', 'Must start and end with a question'),
 })
 
+/** S34: a wall display's name, and the key it presents once when paired. */
+export const displayDeviceSchema = z.object({ name: z.string().trim().min(1, 'Required').max(60) })
+export const displayPairSchema = z.object({ key: z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'Not a display key') })
+
 export function parse<S extends z.ZodTypeAny>(schema: S, body: unknown): z.infer<S> {
   const r = schema.safeParse(body ?? {})
   if (r.success) return r.data

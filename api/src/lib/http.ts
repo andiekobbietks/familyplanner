@@ -1,5 +1,6 @@
 import { app, type HttpMethod, type HttpRequest, type InvocationContext } from '@azure/functions'
 import { getCaller, integrationCaller, principalRoles } from './caller'
+import { displayCaller } from './displayKey'
 import { HttpError } from './errors'
 import { ValidationError } from './schemas'
 import { getStore, type Store } from './store'
@@ -14,6 +15,8 @@ export interface Ctx {
 export interface Result {
   status?: number
   body?: unknown
+  /** Response headers. Only the display pairing and renewal set any (a cookie, S34). */
+  headers?: Record<string, string>
 }
 
 export type Handler = (ctx: Ctx, params: Record<string, string>, query: URLSearchParams, body: unknown) => Promise<Result>
@@ -24,7 +27,13 @@ interface RouteOptions {
   integration?: boolean
   /** Also open to the `display` role. Every route without it refuses that role, so a new route is closed to the wall screen by default. GET only. */
   display?: boolean
+  /** A /api/display/* alias (S34): a signed-in member, or a wall display's key cookie. Read only. Open at the edge. */
+  displayKey?: boolean
+  /** The display pairing route: no caller yet, the body carries the key. Open at the edge. */
+  pairing?: boolean
 }
+
+const PAIRING: Caller = { memberId: 'pairing', role: 'display', familyId: '', displayName: 'Pairing' }
 
 /**
  * Every API function follows the same shape (section 6): resolve the caller,
@@ -34,6 +43,7 @@ interface RouteOptions {
  */
 export function route(name: string, method: HttpMethod, path: string, opts: RouteOptions, handler: Handler): void {
   if (opts.display && method !== 'GET') throw new Error(`${name}: the display role may only read`)
+  if (opts.displayKey && (method !== 'GET' || !opts.display || !path.startsWith('display/'))) throw new Error(`${name}: a display-key route must be a GET under display/`)
   app.http(name, {
     methods: [method],
     route: path,
@@ -55,9 +65,18 @@ export async function run(
   try {
     const store = await getStore()
     // A custom header, because SWA does not reliably pass Authorization through to managed functions.
-    const caller = opts.integration ? integrationCaller(req.headers.get('x-integration-token')) : await getCaller(req.headers.get('x-ms-client-principal'), store)
+    let setCookie: string | undefined
+    let caller: Caller
+    if (opts.pairing) caller = PAIRING
+    else if (opts.integration) caller = integrationCaller(req.headers.get('x-integration-token'))
+    else if (opts.displayKey) {
+      const resolved = await displayCaller(req.headers.get('x-ms-client-principal'), req.headers.get('cookie'), store, new Date())
+      caller = resolved.caller
+      setCookie = resolved.setCookie
+    } else caller = await getCaller(req.headers.get('x-ms-client-principal'), store)
     userId = caller.memberId
-    if (caller.role === 'display' && !opts.display) throw new HttpError(403, 'DISPLAY_READ_ONLY', 'The display can only read')
+    // Pairing has no caller yet; its handler only checks the key and sets the cookie.
+    if (caller.role === 'display' && !opts.display && !opts.pairing) throw new HttpError(403, 'DISPLAY_READ_ONLY', 'The display can only read')
     if (opts.roles && !opts.roles.includes(caller.role)) throw new HttpError(403, 'FORBIDDEN', 'Admin only')
 
     let body: unknown
@@ -68,7 +87,9 @@ export async function run(
     }
     const result = await handler({ store, caller, now: new Date() }, req.params, req.query, body)
     status = result.status ?? 200
-    return status === 204 ? { status } : { status, jsonBody: result.body }
+    const headers = { ...(setCookie ? { 'Set-Cookie': setCookie } : {}), ...(result.headers ?? {}) }
+    const extra = Object.keys(headers).length ? { headers } : {}
+    return status === 204 ? { status, ...extra } : { status, jsonBody: result.body, ...extra }
   } catch (e) {
     if (e instanceof HttpError) {
       status = e.status

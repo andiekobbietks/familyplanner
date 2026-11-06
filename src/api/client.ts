@@ -9,13 +9,23 @@ export class ApiError extends Error {
 }
 
 /**
+ * The API base for the page being shown. The wall page and its pairing page use the
+ * /api/display/* aliases, which also accept a paired display's key (S34); everything
+ * else uses /api, which needs a signed-in member.
+ */
+export function apiUrl(path: string, pathname: string): string {
+  const wall = pathname === '/display' || pathname.startsWith('/display/')
+  return `${wall ? '/api/display' : '/api'}${path}`
+}
+
+/**
  * One fetch wrapper for every API call. A 401 means the session has gone:
  * go to login rather than show a broken screen (section 5.1). A 403 with a
  * membership code means the account is signed in but not invited.
  */
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, ...rest } = init
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(apiUrl(path, window.location.pathname), {
     ...rest,
     headers: { ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(rest.headers ?? {}) },
     body: json !== undefined ? JSON.stringify(json) : rest.body,

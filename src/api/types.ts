@@ -20,6 +20,16 @@ export interface Person {
 export interface Me extends Person {
   email: string
 }
+/** A paired wall display (S34). Keys are never sent back after creation. */
+export interface DisplayDevice {
+  id: string
+  name: string
+  active: boolean
+  createdAt: string
+  createdBy: string
+  lastSeenAt: string | null
+}
+
 export interface MemberRecord extends Person {
   email: string
   active: boolean

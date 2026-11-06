@@ -13,6 +13,9 @@
     { "route": "/manifest.webmanifest", "allowedRoles": ["anonymous", "authenticated"] },
     { "route": "/sw.js",                "allowedRoles": ["anonymous", "authenticated"] },
     { "route": "/api/integration/*",    "allowedRoles": ["anonymous", "authenticated"] },
+    { "route": "/api/display/*",        "allowedRoles": ["anonymous", "authenticated"] },
+    { "route": "/display",              "allowedRoles": ["anonymous", "authenticated"] },
+    { "route": "/display/pair",         "allowedRoles": ["anonymous", "authenticated"] },
     { "route": "/api/*",                "allowedRoles": ["authenticated"] },
     { "route": "/*",                    "allowedRoles": ["authenticated"] }
   ],

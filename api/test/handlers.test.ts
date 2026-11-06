@@ -314,8 +314,9 @@ describe('recipe intake', () => {
   it('S5: only the integration path is open at the edge, and its rule comes first', () => {
     const { routes } = JSON.parse(readFileSync(`${__dirname}/../../staticwebapp.config.json`, 'utf8')) as { routes: { route: string; allowedRoles?: string[] }[] }
     const open = routes.filter((r) => r.route.startsWith('/api') && r.allowedRoles?.includes('anonymous')).map((r) => r.route)
-    expect(open).toEqual(['/api/integration/*'])
-    expect(routes.findIndex((r) => r.route === '/api/integration/*')).toBeLessThan(routes.findIndex((r) => r.route === '/api/*'))
+    // S31 and S34: the integration token and the display key are the only machine credentials.
+    expect(open).toEqual(['/api/integration/*', '/api/display/*'])
+    for (const r of open) expect(routes.findIndex((x) => x.route === r)).toBeLessThan(routes.findIndex((x) => x.route === '/api/*'))
   })
 })
 

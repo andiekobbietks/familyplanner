@@ -4,6 +4,7 @@ import { Layout } from './components/Layout'
 import { Calendar } from './pages/Calendar'
 import { Chat } from './pages/Chat'
 import { Display } from './pages/Display'
+import { DisplayPair } from './pages/DisplayPair'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
 import { MealPlan } from './pages/MealPlan'
@@ -35,14 +36,9 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/not-a-member" element={<NotAMember />} />
-      <Route
-        path="/display"
-        element={
-          <RequireMember>
-            <Display />
-          </RequireMember>
-        }
-      />
+      {/* Open without a sign-in: a paired display has a key instead (S34). The page shows "not paired" otherwise. */}
+      <Route path="/display" element={<Display />} />
+      <Route path="/display/pair" element={<DisplayPair />} />
       <Route
         element={
           <RequireMember>

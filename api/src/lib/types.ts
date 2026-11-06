@@ -1,6 +1,6 @@
 /** `display` is the wall screen: it may only read what the dashboard shows (section 4). */
 export type Role = 'admin' | 'member' | 'display'
-export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings' | 'recipe' | 'chore' | 'choreWeek'
+export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings' | 'recipe' | 'chore' | 'choreWeek' | 'displayDevice'
 export type Slot = 'breakfast' | 'lunch' | 'dinner'
 export const SLOTS: Slot[] = ['breakfast', 'lunch', 'dinner']
 export const CATEGORIES = ['Produce', 'Dairy', 'Bakery', 'Household', 'Other'] as const
@@ -107,7 +107,19 @@ export interface Settings extends BaseDoc {
   defaultListId?: string
 }
 
-export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Recipe | Chore | ChoreWeek | Settings
+/**
+ * A paired wall display (S34). Only the SHA-256 of its key is stored; the key itself
+ * lives in the display's cookie. Revoking clears the hash, so the record stays for the audit trail.
+ */
+export interface DisplayDevice extends BaseDoc {
+  type: 'displayDevice'
+  name: string
+  keyHash: string
+  active: boolean
+  lastSeenAt?: string
+}
+
+export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Recipe | Chore | ChoreWeek | Settings | DisplayDevice
 
 export interface Caller {
   memberId: string

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { ChatMessage, Chore, ChoreSchedule, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Task, Weather } from './types'
+import type { ChatMessage, Chore, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Task, Weather } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -41,6 +41,7 @@ export const useChores = (monday: string) => useQuery({ queryKey: ['chores', mon
 export const useWeather = () => useQuery({ queryKey: ['weather'], queryFn: () => api<Weather>('/weather'), staleTime: 30 * 60_000, retry: false })
 
 export const useMembers = () => useQuery({ queryKey: ['members'], queryFn: () => api<MemberRecord[]>('/members') })
+export const useDisplayDevices = () => useQuery({ queryKey: ['display-devices'], queryFn: () => api<DisplayDevice[]>('/display-devices') })
 
 /** Mutation helper that invalidates the given query roots afterwards. */
 export function useInvalidating<TArgs, TResult = unknown>(fn: (args: TArgs) => Promise<TResult>, keys: string[]) {
@@ -85,5 +86,8 @@ export const mutations = {
   patchSettings: (body: { breakfastEnabled?: boolean; defaultListId?: string | null }) => api<Settings>('/settings', { method: 'PATCH', json: body }),
   invite: (email: string, role: string) => api<{ member: MemberRecord; instructions: string }>('/members/invite', { method: 'POST', json: { email, role } }),
   removeMember: (id: string) => api<void>(`/members/${id}`, { method: 'DELETE' }),
+  createDisplay: (name: string) => api<{ id: string; name: string; key: string }>('/display-devices', { method: 'POST', json: { name } }),
+  revokeDisplay: (id: string) => api<void>(`/display-devices/${id}`, { method: 'DELETE' }),
+  pairDisplay: (key: string) => api<void>('/pair', { method: 'POST', json: { key } }),
   erase: () => api<void>('/admin/erase', { method: 'POST', json: { confirm: 'DELETE' } }),
 }

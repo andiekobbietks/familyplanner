@@ -7,7 +7,9 @@ import { touch } from '../lib/util'
 const publicMember = (m: Member) => ({ id: m.id, displayName: m.displayName, colour: memberColour(m.colour), role: m.role })
 
 export const getMe: Handler = async ({ store, caller }) => {
-  const m = (await store.get<Member>(caller.familyId, caller.memberId, 'member'))!
+  const m = await store.get<Member>(caller.familyId, caller.memberId, 'member')
+  // A display paired with a key (S34) has no member document.
+  if (!m) return { body: { id: caller.memberId, displayName: caller.displayName, colour: '#57534e', role: caller.role, email: '' } }
   return { body: { ...publicMember(m), email: m.email } }
 }
 

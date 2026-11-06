@@ -75,7 +75,9 @@ Questions and whatever the tools read go to Anthropic's API, including anything 
 
 `/display` is a read-only page for the kitchen photoframe (see `../photoframe`): a clock, the weather, today's events, meals and due tasks, the next six days, and this week's chores. A large **Month** button in the corner flips to the whole month's calendar and back. The month view returns to the dashboard on its own after five minutes. The page refreshes its data every minute and reloads itself once a night to pick up new deploys. Any member can open it to see what the frame shows.
 
-The frame signs in with its own Microsoft account, invited on the Members page with the role **Display**. Nothing is needed in the Azure portal. That role can read only what the page shows, is sent to `/display` from any other address, and is refused everything else by the API, so the frame can't write, chat or see members. Removing it on the Members page cuts the frame off on its next request.
+The frame is paired with its own key, not a Microsoft account (S34, D9). On the Members page, under **Displays**, choose **Add a display** and copy the pairing link, which is shown only once. Open it on the frame; for the photoframe kiosk, over USB: `adb shell am start -n com.homedash.kiosk/.KioskActivity -d '<link>'`. The page swaps the key for a cookie and opens the wall page. The key reads only `/api/display/*`, the wall page's own data, and nothing else, so the frame can't write, chat or see members. **Revoke** on the Members page cuts it off on its next request.
+
+A Microsoft account invited with the role **Display** still works the same way, but its 8-hour session and Microsoft's sign-in checks make it a poor fit for a screen that runs unattended.
 
 The build targets Chrome 87 because the frame's browser may be old (Chrome 106 is the last for Android 6), so keep newer CSS such as `color-mix` out of the `wall-` styles.
 

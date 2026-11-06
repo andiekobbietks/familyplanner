@@ -426,6 +426,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
    (Android 6 stops at Chrome 106), so nothing newer than that: no color-mix, :has or nesting. */
 .wall { height: 100vh; display: flex; flex-direction: column; padding: 1.25rem 1.5rem; gap: 1rem; overflow: hidden; cursor: default; user-select: none; }
 .wall-top { display: flex; justify-content: space-between; align-items: center; gap: 2rem; }
+.wall-unpaired { align-items: center; justify-content: center; text-align: center; gap: 0.5rem; }
 .wall-clock { font-family: var(--display); font-size: 4.5rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 .wall-date { font-size: 1.5rem; font-weight: 600; color: var(--muted); margin-top: 0.25rem; }
 .wall-weather { display: flex; align-items: center; gap: 1rem; color: var(--text); }

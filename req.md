@@ -234,7 +234,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 
 ### 7.2 Authorisation
 
-- S5. Route-level protection in `staticwebapp.config.json` covers every path, including `/api/*`. The default rule for `/*` requires a signed-in user. Only `/login`, `/.auth/*`, and hashed static assets are excepted. Family data is protected by the membership check in S3 and S6.
+- S5. Route-level protection in `staticwebapp.config.json` covers every path, including `/api/*`. The default rule for `/*` requires a signed-in user. Only `/login`, `/.auth/*`, and hashed static assets are excepted, plus the machine paths of S31 and S34 (`/api/integration/*`, `/api/display/*`, and the wall page shells `/display` and `/display/pair`, which hold no data). Family data is protected by the membership check in S3 and S6.
 - S6. Every API function independently parses `x-ms-client-principal`, rejects requests with no principal or no active member record, and never trusts a user id or role sent in the request body.
 - S7. Admin-only operations (invite, remove member, delete list, export) check for the `admin` role inside the function, not just at the route.
 - S8. Every write records `createdBy` / `updatedBy` from the principal, never from client input.
@@ -249,7 +249,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
   - `Referrer-Policy: strict-origin-when-cross-origin`
   - `Permissions-Policy` denying camera, microphone, geolocation, payment.
 - S11. No third-party analytics, tag managers, tracking pixels or embedded widgets. Application Insights, if used, is loaded only server-side in the functions.
-- S12. The SWA session cookie is set by the platform as `HttpOnly`, `Secure`, `SameSite`. The app must not create its own auth cookies or store tokens in `localStorage`.
+- S12. The SWA session cookie is set by the platform as `HttpOnly`, `Secure`, `SameSite`. The app must not create its own auth cookies or store tokens in `localStorage`. The one exception is the wall display's key cookie (S34).
 
 ### 7.4 Input handling and data
 
@@ -280,8 +280,9 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 - S28. Data about children is entered by their parents and only visible to invited family. There is no public or shareable surface in v1.
 - S29. An admin can delete all data for the family in one action, leaving only that admin's own member record so they can still sign in. This satisfies the family's own right to erasure and makes decommissioning clean.
 - S30. A Google calendar feed address is a secret: anyone holding it can read that calendar. It lives only in application settings (S19), is never sent to the browser and is never logged (S23). Only `https://calendar.google.com/` addresses are fetched, so a bad setting cannot point the API elsewhere. If an address leaks, reset it in Google Calendar and update the setting.
-- S31. A service on the home server calls the API through `/api/integration/*` with a long random token in the `x-integration-token` header. That path is the only API path open at the SWA edge, so the token is its only protection. It is at least 32 characters, lives in application settings and in a file readable only by its owner on the home server, and is compared in constant time. With no token configured, every request is refused. The token can add recipes and nothing else: it reads no family data, and a signed-in session does not stand in for it.
+- S31. A service on the home server calls the API through `/api/integration/*` with a long random token in the `x-integration-token` header. That path is open at the SWA edge (the only other open API path is S34's `/api/display/*`), so the token is its only protection. It is at least 32 characters, lives in application settings and in a file readable only by its owner on the home server, and is compared in constant time. With no token configured, every request is refused. The token can add recipes and nothing else: it reads no family data, and a signed-in session does not stand in for it.
 - S32. The forecast comes from Open-Meteo, which needs no key. The API fetches it and caches it in memory for 30 minutes, so the browser contacts no outside service (S10) and nothing about a person is sent. The town is fixed in the code as the centre of Reading, with coordinates to two decimal places, about a kilometre. No home address is involved, and those coordinates are all the forecast request contains.
+- S34. A wall display can be paired with its own key instead of a Microsoft account, so a frame on the wall needs no sign-in that can expire, be locked or ask for a second factor (D9). An admin creates a display on the Members page. The API generates 32 random bytes (base64url), stores only their SHA-256 in a `displayDevice` document and returns the key once, inside a pairing link `/display/pair#k=<key>`. The key is after the `#`, so it is never in a request line or a log, and the pairing page clears it from the address bar before presenting it once to `POST /api/display/pair`. The answer is a cookie `__Host-DisplayKey`, `Path=/`, `Secure`, `HttpOnly`, `SameSite=Strict`, `Max-Age` 400 days, renewed at most daily while the display is in use. The key is accepted only on the `/api/display/*` aliases of the routes the wall page reads, all GET. It makes the caller the `display` role, so the rule that the display may only read applies too, and every other route still needs a signed-in member at the edge (S5). A signed-in member can use the aliases as well. With neither, the answer is 403 `NOT_PAIRED`, never 401, because SWA would turn a 401 into a sign-in redirect. Keys are compared by hash in constant time and never logged (S23). Failed attempts are logged at warning (S24). Revoking clears the hash and the display is refused on its next request. The export leaves display records out. The accepted risk: someone with physical access to the paired frame could copy its key and read what the wall page shows until it is revoked.
 - S33. Chat sends the question, the recent conversation and whatever its tools read to Anthropic's API, from the API and never from the browser (S10). That can include anything about children in the planner (S28), so this is the one route by which family content leaves Azure and Google. Tools only read, are limited to the planner's own content and send names, never email addresses. There are no web or messaging tools, so text in a recipe or calendar invite that tries to instruct the model has nothing to act through. Replies are shown as plain text, so they can't load anything. Questions and answers are never logged (S23). The key lives only in application settings (S19). With no key set, chat is refused and nothing is sent.
 
 ---
@@ -319,6 +320,8 @@ recipe   { title, summary?, serves?, time?, source?, tags: [string], ingredients
 chore    { name }
 
 choreWeek { week: "YYYY-MM-DD" (the Monday), choreId, memberId }
+
+displayDevice { name, keyHash (SHA-256 hex, "" once revoked), active: bool, lastSeenAt? }   (S34)
 ```
 
 Plan entries are keyed so that `(familyId, date, slot)` is unique, and chore weeks so that `(familyId, week, choreId)` is. Settings that are family-wide (enabled meal slots, default shopping list) live on a single `settings` document with `id = "settings"`.
@@ -355,6 +358,11 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | PATCH | `/recipes/{id}` | Update recipe |
 | DELETE | `/recipes/{id}` | Delete recipe |
 | POST | `/integration/recipes` | Add recipes whose titles are new, for Hermes. Token, not a login (S31). Returns `{ added, skipped, failed }` |
+| GET | `/display/{me,people,external-events,tasks,plan,chores,weather,settings}` | The wall page's reads: a display key cookie or a signed-in member (S34) |
+| POST | `/display/pair` | `{ key }` once from the pairing page. 204 with the display cookie, or 403 (S34) |
+| GET | `/display-devices` | Admin. Displays, without keys or hashes |
+| POST | `/display-devices` | Admin. `{ name }`. Returns `{ id, name, key }`, the only time the key is shown |
+| DELETE | `/display-devices/{id}` | Admin. Revoke |
 | POST | `/chat` | Answer a question (`{ "messages": [{ "role", "content" }] }`, at most 20, starting and ending with the member's). Reads only (S33). Returns `{ reply }` |
 | GET | `/chores?week=YYYY-MM-DD` | Chores and that week's assignments |
 | POST | `/chores` | Create chore |
@@ -442,6 +450,7 @@ Decide these before building. Defaults are stated so work can proceed without th
 - **D5. Children as users.** Do the children get their own logins in v1, or are they only assignees without accounts? Default: assignees without accounts. This keeps the account count to two and avoids creating provider accounts for young children.
 - **D6. Source of truth in v2.** When the home server arrives, does the planner data stay in Azure with the home server as a consumer, or move home with Azure as a front end? Default: stays in Azure. The planner must keep working when the house has a power cut or the server is being rebuilt, which is exactly when a family most needs its calendar. See Section 15.
 - **D7. Meal slots.** Decided: Lunch and Dinner are both planned from v1 and cannot be disabled. Breakfast exists in the data model and is switchable on in settings, off by default.
+- **D9. Wall display sign-in.** Decided 2026-11-06: the photoframe uses a display key (S34), not a Microsoft account. With an account it signed in through Static Web Apps, whose session lasts 8 hours. Microsoft's "stay signed in" cookies weren't kept by the frame's browser engine, so a power cut longer than that meant the full sign-in with a second factor, and the new account was locked by Microsoft's fraud checks after repeated sign-ins from the frame. The key needs no Microsoft account, can't expire while in use and is revoked on the Members page. It relaxes S5 and S12 as described in S34.
 - **D8. Google calendar display.** Decided: read the secret iCal feed on the server. Google's embedded calendar iframe was rejected because it needs a third-party `frame-src`, breaks S10 and S11, and cannot match the planner's views. The Google Calendar API with OAuth was rejected because it needs a Google Cloud project and a per-user consent flow for a read-only display. If writing to Google is wanted later, the API is the route. The planner keeps no events of its own, so there is one source of truth.
 
 ---

@@ -47,7 +47,8 @@ describe('display role', () => {
     for (const name of DISPLAY_CAN_READ) expect(registered.find((r) => r.name === name)?.methods).toEqual(['GET'])
   })
 
-  it.each(registered.filter((r) => !DISPLAY_CAN_READ.includes(r.name) && r.route.split('/')[0] !== 'integration').map((r) => [r.name, r] as const))(
+  it.each(// display/* (the key aliases and pairing) is S34's, tested in displayKey.test.ts.
+  registered.filter((r) => !DISPLAY_CAN_READ.includes(r.name) && !['integration', 'display'].includes(r.route.split('/')[0])).map((r) => [r.name, r] as const))(
     'is refused %s',
     async (_name, r) => {
       const res = await call(r)

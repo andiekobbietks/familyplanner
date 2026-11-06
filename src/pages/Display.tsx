@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { api, ApiError } from '../api/client'
 import { useCalendarEvents, useChores, usePlan, useSettings, useTasks, useWeather } from '../api/hooks'
-import type { Occurrence, PlanEntry, Slot, Weather } from '../api/types'
+import type { Me, Occurrence, PlanEntry, Slot, Weather } from '../api/types'
 import { Icon } from '../components/Icons'
 import { Avatar, usePersonMap } from '../components/People'
 import { addDays, fmtDayLong, fmtMonth, fmtTime, fmtWeekday, mondayOf, monthGrid, relativeDay, todayISO } from '../lib/dates'
@@ -31,7 +32,37 @@ function useNow() {
  * five minutes, and the page reloads once a night so a long-running screen picks up new deploys. It reads only
  * the routes open to the `display` role, so any member can open it too to see what the frame shows.
  */
+const notPaired = (e: unknown) => e instanceof ApiError && e.code === 'NOT_PAIRED'
+
+/**
+ * The wall page is open without a sign-in (S34): a paired display presents its key cookie,
+ * and a member their session. With neither, say so rather than send the frame to a sign-in page.
+ * The data refresh re-checks this too, so a revoked display shows the message within a minute.
+ */
 export function Display() {
+  const who = useQuery({
+    queryKey: ['display-me'],
+    queryFn: () => api<Me>('/me'),
+    retry: (count, e) => !notPaired(e) && count < 3,
+  })
+  if (who.isLoading) return <div className="loading">Loading…</div>
+  if (notPaired(who.error)) return <NotPaired />
+  return <DisplayBoard />
+}
+
+function NotPaired() {
+  return (
+    <div className="wall wall-unpaired">
+      <h1>This display isn't paired</h1>
+      <p className="muted">An admin can pair it from Members, under Displays.</p>
+      <p>
+        <a href="/login?next=%2Fdisplay">Family members can sign in</a>
+      </p>
+    </div>
+  )
+}
+
+function DisplayBoard() {
   const now = useNow()
   const today = todayISO()
   const lastDay = addDays(today, 6)
