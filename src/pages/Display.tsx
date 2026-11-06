@@ -13,7 +13,7 @@ import { degrees, describeWeather } from '../lib/weather'
 
 /** How often the wall page refetches its data. */
 const REFRESH_MS = 60_000
-/** Meals and Month are a glance: after this long the frame goes back to Today on its own. */
+/** Month is a glance: after this long without a touch the frame goes back to Today on its own. Meals stays until another view is chosen. */
 const AWAY_FOR_MS = 5 * 60_000
 /** A recipe is followed while cooking, so it stays up for this long after the last touch. */
 const RECIPE_FOR_MS = 30 * 60_000
@@ -82,7 +82,7 @@ function DisplayBoard() {
   const [touchedAt, setTouchedAt] = useState(0)
 
   useEffect(() => {
-    if (view === 'today') return
+    if (view === 'today' || view === 'meals') return
     const t = setTimeout(() => setView('today'), view === 'recipes' ? RECIPE_FOR_MS : AWAY_FOR_MS)
     return () => clearTimeout(t)
   }, [view, touchedAt])
