@@ -64,6 +64,8 @@ export const mutations = {
   createTask: (body: Partial<Task>) => api<Task>('/tasks', { method: 'POST', json: body }),
   patchTask: (id: string, body: Partial<Task>) => api<Task>(`/tasks/${id}`, { method: 'PATCH', json: body }),
   deleteTask: (id: string) => api<void>(`/tasks/${id}`, { method: 'DELETE' }),
+  /** Wall page only: the display key's one write, under /api/display (S34). */
+  wallSetTaskDone: (id: string, done: boolean) => api<Task>(`/tasks/${id}/done`, { method: 'POST', json: { done } }),
 
   setCell: (date: string, slot: string, body: { text: string }) =>
     api<PlanEntry>(`/plan/${date}/${slot}`, { method: 'PUT', json: body }),

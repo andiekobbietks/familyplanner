@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '../api/client'
-import { useCalendarEvents, useChores, usePlan, useRecipes, useSettings, useShopping, useTasks, useWeather } from '../api/hooks'
+import { mutations, useCalendarEvents, useChores, usePlan, useRecipes, useSettings, useShopping, useTasks, useWeather } from '../api/hooks'
 import type { Me, Occurrence, PlanEntry, Slot, Task, Weather } from '../api/types'
 import { Icon, type IconName } from '../components/Icons'
 import { Avatar, usePersonMap } from '../components/People'
@@ -29,6 +29,8 @@ const VIEWS: { id: View; label: string; icon: IconName }[] = [
 const MONTH_CELL_EVENTS: Record<number, number> = { 4: 4, 5: 3, 6: 2 }
 /** To-dos on the Today card before the rest collapse to "+N more", so the shopping list keeps its room. */
 const TODOS_SHOWN = 6
+/** How long Undo stays up after a to-do is ticked on the wall. */
+const UNDO_FOR_MS = 8_000
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
 
 /** The current time, ticking every 20 seconds, so the clock and "today" roll over on their own. */
@@ -160,7 +162,14 @@ function DisplayBoard() {
             {unavailable && <p className="wall-note">Google calendar unavailable</p>}
             <Agenda events={byDay.get(today) ?? []} showCalendar={showCalendar} nowMs={now.getTime()} />
             <Meals plan={plan.filter((p) => p.date === today)} slots={slots} />
-            <TodoList todos={todos} today={today} />
+            <TodoList
+              todos={todos}
+              today={today}
+              onDone={async (id, done) => {
+                await mutations.wallSetTaskDone(id, done)
+                await qc.invalidateQueries({ queryKey: ['tasks'] })
+              }}
+            />
           </section>
           <ShoppingPanel />
         </div>
@@ -287,21 +296,71 @@ function Chores({ week }: { week: string }) {
   )
 }
 
-/** The Today card's to-dos. Always shown, so an empty list reads as done rather than missing. */
-export function TodoList({ todos, today }: { todos: Task[]; today: string }) {
+/**
+ * The Today card's to-dos. Always shown, so an empty list reads as done rather than missing.
+ * With `onDone`, each has a tick button, the wall's only write (S34): a ticked to-do goes at once
+ * and Undo stays up for a few seconds in case of a stray touch.
+ */
+export function TodoList({ todos, today, onDone }: { todos: Task[]; today: string; onDone?: (id: string, done: boolean) => Promise<unknown> }) {
   const people = usePersonMap()
+  const [hidden, setHidden] = useState<string[]>([])
+  const [undo, setUndo] = useState<Task>()
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    if (!undo) return
+    const t = setTimeout(() => setUndo(undefined), UNDO_FOR_MS)
+    return () => clearTimeout(t)
+  }, [undo])
+  // Once a refetch drops a ticked to-do, stop hiding it, so one unticked elsewhere comes back.
+  useEffect(() => {
+    setHidden((h) => (h.some((id) => !todos.some((t) => t.id === id)) ? h.filter((id) => todos.some((t) => t.id === id)) : h))
+  }, [todos])
+
+  async function tick(t: Task) {
+    if (!onDone) return
+    setFailed(false)
+    setHidden((h) => [...h, t.id])
+    setUndo(t)
+    try {
+      await onDone(t.id, true)
+    } catch {
+      setHidden((h) => h.filter((id) => id !== t.id))
+      setUndo(undefined)
+      setFailed(true)
+    }
+  }
+
+  async function untick(t: Task) {
+    if (!onDone) return
+    setFailed(false)
+    setUndo(undefined)
+    try {
+      await onDone(t.id, false)
+      setHidden((h) => h.filter((id) => id !== t.id))
+    } catch {
+      setFailed(true)
+    }
+  }
+
+  const shown = todos.filter((t) => !hidden.includes(t.id))
   return (
     <>
       <h3>To do</h3>
-      {todos.length === 0 ? (
+      {shown.length === 0 ? (
         <p className="wall-muted">Nothing to do.</p>
       ) : (
         <>
           <ul className="wall-list">
-            {todos.slice(0, TODOS_SHOWN).map((t) => {
+            {shown.slice(0, TODOS_SHOWN).map((t) => {
               const who = people.get(t.assignee ?? '')
               return (
                 <li key={t.id}>
+                  {onDone && (
+                    <button type="button" className="wall-tick" aria-label={`Done: ${t.title}`} onClick={() => void tick(t)}>
+                      <Icon name="check" size={26} />
+                    </button>
+                  )}
                   <span className="wall-grow">{t.title}</span>
                   {t.dueDate && t.dueDate !== today && <span className={t.dueDate < today ? 'wall-overdue' : 'wall-due'}>{relativeDay(t.dueDate)}</span>}
                   {who && <Avatar person={who} size={26} />}
@@ -309,8 +368,21 @@ export function TodoList({ todos, today }: { todos: Task[]; today: string }) {
               )
             })}
           </ul>
-          {todos.length > TODOS_SHOWN && <p className="wall-muted wall-more-todos">+{todos.length - TODOS_SHOWN} more</p>}
+          {shown.length > TODOS_SHOWN && <p className="wall-muted wall-more-todos">+{shown.length - TODOS_SHOWN} more</p>}
         </>
+      )}
+      {undo && (
+        <p className="wall-undo" role="status">
+          <span className="wall-grow">Done: {undo.title}</span>
+          <button type="button" onClick={() => void untick(undo)}>
+            Undo
+          </button>
+        </p>
+      )}
+      {failed && (
+        <p className="wall-note" role="alert">
+          Couldn't save that. Try again.
+        </p>
       )}
     </>
   )

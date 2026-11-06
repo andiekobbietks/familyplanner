@@ -5,7 +5,7 @@ import { MemoryStore } from '../src/lib/memoryStore'
 import { seed } from '../src/lib/seed'
 import { setStore } from '../src/lib/store'
 import type { Ctx } from '../src/lib/http'
-import type { Caller, DisplayDevice } from '../src/lib/types'
+import type { Caller, DisplayDevice, Task } from '../src/lib/types'
 
 /**
  * S34: the wall display's own key, so the frame needs no Microsoft sign-in.
@@ -19,9 +19,12 @@ await import('../src/index')
 const { createDisplayDevice, listDisplayDevices, revokeDisplayDevice } = await import('../src/handlers/displayDevices')
 const { DISPLAY_COOKIE } = await import('../src/lib/displayKey')
 const { ValidationError } = await import('../src/lib/schemas')
+const { route } = await import('../src/lib/http')
 
 process.env.FAMILY_ID = 'home'
 
+/** The one route the key can write through: ticking a to-do (S34). */
+const DISPLAY_WRITE = 'display-tasks-done'
 /** The same list as display.test.ts: what the wall page reads. */
 const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'recipes-get']
 const quiet = { log() {}, warn() {}, error() {} }
@@ -50,14 +53,16 @@ const byName = (name: string) => {
   return r
 }
 
-function request(r: (typeof registered)[number], opts: { cookie?: string; principal?: string; body?: unknown } = {}) {
+function request(r: (typeof registered)[number], opts: { cookie?: string; principal?: string; body?: unknown; params?: Record<string, string>; contentType?: string | null } = {}) {
   const headers = new Headers()
   if (opts.cookie) headers.set('cookie', opts.cookie)
   if (opts.principal) headers.set('x-ms-client-principal', opts.principal)
+  const contentType = opts.contentType === undefined ? 'application/json' : opts.contentType
+  if (contentType) headers.set('content-type', contentType)
   const req = {
     method: r.methods[0],
     headers,
-    params: {},
+    params: opts.params ?? {},
     query: new URLSearchParams('view=all&week=2026-11-02&from=2026-11-02&to=2026-11-08'),
     json: async () => opts.body ?? {},
   }
@@ -162,7 +167,7 @@ describe('display key: pairing', () => {
 
 describe('display key: what it opens', () => {
   it('there is a GET alias under display/ for exactly what the wall page reads', () => {
-    const aliases = registered.filter((r) => r.route.startsWith('display/') && r.name !== 'display-pair' && !r.name.startsWith('display-devices'))
+    const aliases = registered.filter((r) => r.route.startsWith('display/') && !['display-pair', DISPLAY_WRITE].includes(r.name) && !r.name.startsWith('display-devices'))
     expect(aliases.map((r) => r.name).sort()).toEqual(DISPLAY_CAN_READ.map(aliasFor).sort())
     for (const r of aliases) expect(r.methods).toEqual(['GET'])
   })
@@ -214,6 +219,99 @@ describe('display key: what it opens', () => {
     const { key } = await newKey()
     expect((await request(byName(aliasFor('tasks-get')), { cookie: `${DISPLAY_COOKIE}=${key}x` })).status).toBe(403)
     expect((await request(byName(aliasFor('tasks-get')), { cookie: `x${DISPLAY_COOKIE}=${key}` })).status).toBe(403)
+  })
+})
+
+describe('display key: ticking a to-do, its only write', () => {
+  const tick = (key: string, id: string, body: unknown, contentType?: string | null) =>
+    request(byName(DISPLAY_WRITE), { cookie: cookieFor(key), params: { id }, body, contentType })
+  const task = (id: string) => store.get<Task>('home', id, 'task')
+
+  it('is the only display/ route that is not a GET', () => {
+    const writes = registered.filter((r) => r.route.startsWith('display/') && r.methods[0] !== 'GET' && r.name !== 'display-pair' && !r.name.startsWith('display-devices'))
+    expect(writes.map((r) => [r.name, r.methods, r.route])).toEqual([[DISPLAY_WRITE, ['POST'], 'display/tasks/{id}/done']])
+  })
+
+  it('the key ticks a to-do and unticks it, recorded as the display', async () => {
+    const { id: deviceId, key } = await newKey()
+    const before = (await task('t-1'))!
+    expect(before.done).toBe(false)
+
+    const res = await tick(key, 't-1', { done: true })
+    expect(res.status).toBe(200)
+    const done = (await task('t-1'))!
+    expect(done).toMatchObject({ done: true, completedBy: `display:${deviceId}`, updatedBy: `display:${deviceId}` })
+    expect(done.completedAt).toBeTruthy()
+    // Nothing else about the task changes.
+    expect({ ...done, done: false, completedAt: before.completedAt, completedBy: before.completedBy, updatedAt: before.updatedAt, updatedBy: before.updatedBy }).toEqual(before)
+
+    expect((await tick(key, 't-1', { done: false })).status).toBe(200)
+    expect(await task('t-1')).toMatchObject({ done: false, completedAt: null, completedBy: null })
+  })
+
+  it('ignores anything in the body but done, so it cannot edit a to-do', async () => {
+    const { key } = await newKey()
+    const before = (await task('t-1'))!
+    await tick(key, 't-1', { done: true, title: 'Hacked', notes: 'x', assignee: 'm-tim', dueDate: '2030-01-01', familyId: 'other' })
+    const after = (await task('t-1'))!
+    expect(after).toMatchObject({ title: before.title, assignee: before.assignee, dueDate: before.dueDate, familyId: 'home', done: true })
+    expect(after.notes).toBe(before.notes)
+  })
+
+  it('rejects a body without a boolean done', async () => {
+    const { key } = await newKey()
+    for (const body of [{}, { done: 'yes' }, { done: 1 }]) {
+      const res = await tick(key, 't-1', body)
+      expect(res.status).toBe(400)
+    }
+    expect((await task('t-1'))!.done).toBe(false)
+  })
+
+  it('refuses a body not sent as JSON, so a form on another site cannot tick', async () => {
+    const { key } = await newKey()
+    for (const type of [null, 'text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data']) {
+      const res = await tick(key, 't-1', { done: true }, type)
+      expect(res.status, String(type)).toBe(415)
+    }
+    expect((await task('t-1'))!.done).toBe(false)
+  })
+
+  it('an unknown to-do is a 404', async () => {
+    const { key } = await newKey()
+    expect((await tick(key, 'nope', { done: true })).status).toBe(404)
+  })
+
+  it('needs a key: none, a wrong one or a revoked one is NOT_PAIRED and changes nothing', async () => {
+    const { id, key } = await newKey()
+    const none = await request(byName(DISPLAY_WRITE), { params: { id: 't-1' }, body: { done: true } })
+    expect(none.jsonBody?.code).toBe('NOT_PAIRED')
+    expect((await tick('C'.repeat(43), 't-1', { done: true })).jsonBody?.code).toBe('NOT_PAIRED')
+    await revokeDisplayDevice(ctx, { id }, new URLSearchParams(), undefined)
+    expect((await tick(key, 't-1', { done: true })).jsonBody?.code).toBe('NOT_PAIRED')
+    expect((await task('t-1'))!.done).toBe(false)
+  })
+
+  it('the key still cannot add, edit or delete to-dos, or tick shopping', async () => {
+    const { key } = await newKey()
+    const before = JSON.stringify(await store.byType('home', 'task'))
+    for (const name of ['tasks-create', 'tasks-patch', 'tasks-delete', 'items-patch']) {
+      expect((await request(byName(name), { cookie: cookieFor(key), params: { id: 't-1' }, body: { done: true } })).status, name).toBe(401)
+    }
+    expect(JSON.stringify(await store.byType('home', 'task'))).toBe(before)
+  })
+
+  it('a signed-in member can tick through it too, recorded as themselves', async () => {
+    const res = await request(byName(DISPLAY_WRITE), { principal: principal('dev-charlie', 'charlie@example.com'), params: { id: 't-1' }, body: { done: true } })
+    expect(res.status).toBe(200)
+    expect((await task('t-1'))!.completedBy).toBe('m-charlie')
+  })
+
+  it('a display write route registered any other way is rejected', () => {
+    const noop = async () => ({})
+    expect(() => route('w1', 'PATCH', 'display/x', { display: true, displayKey: true, displayWrite: true }, noop)).toThrow(/POST/)
+    expect(() => route('w2', 'POST', 'x', { display: true, displayKey: true, displayWrite: true }, noop)).toThrow(/POST/)
+    expect(() => route('w3', 'POST', 'display/x', { display: true, displayKey: true }, noop)).toThrow(/only read/)
+    expect(() => route('w4', 'POST', 'x', { display: true }, noop)).toThrow(/only read/)
   })
 })
 

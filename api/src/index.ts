@@ -45,6 +45,8 @@ view('tasks-get', 'tasks', tasks.getTasks)
 route('tasks-create', 'POST', 'tasks', ANY, tasks.createTask)
 route('tasks-patch', 'PATCH', 'tasks/{id}', ANY, tasks.patchTask)
 route('tasks-delete', 'DELETE', 'tasks/{id}', ANY, tasks.deleteTask)
+// The wall display's one write: tick a to-do or untick it (S34). Nothing else about a task.
+route('display-tasks-done', 'POST', 'display/tasks/{id}/done', { display: true, displayKey: true, displayWrite: true }, tasks.setTaskDone)
 
 view('plan-get', 'plan', plan.getPlan)
 route('plan-copy', 'POST', 'plan/copy-week', ANY, plan.copyWeek)

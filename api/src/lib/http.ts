@@ -25,10 +25,16 @@ interface RouteOptions {
   roles?: Role[]
   /** Called by a service holding the integration token, not a signed-in member. Needs its own rule in staticwebapp.config.json. */
   integration?: boolean
-  /** Also open to the `display` role. Every route without it refuses that role, so a new route is closed to the wall screen by default. GET only. */
+  /** Also open to the `display` role. Every route without it refuses that role, so a new route is closed to the wall screen by default. GET only, unless `displayWrite`. */
   display?: boolean
-  /** A /api/display/* alias (S34): a signed-in member, or a wall display's key cookie. Read only. Open at the edge. */
+  /** A /api/display/* alias (S34): a signed-in member, or a wall display's key cookie. Read only, unless `displayWrite`. Open at the edge. */
   displayKey?: boolean
+  /**
+   * The one kind of write the wall display may make: marking a to-do done or not done (S34).
+   * Must be a POST under display/ with `display` and `displayKey`, and the body must be sent as
+   * JSON, which a page on another site can't do without the browser asking first.
+   */
+  displayWrite?: boolean
   /** The display pairing route: no caller yet, the body carries the key. Open at the edge. */
   pairing?: boolean
 }
@@ -42,8 +48,12 @@ const PAIRING: Caller = { memberId: 'pairing', role: 'display', familyId: '', di
  * the principal header (S23). Failed authorisation is logged at warning (S24).
  */
 export function route(name: string, method: HttpMethod, path: string, opts: RouteOptions, handler: Handler): void {
-  if (opts.display && method !== 'GET') throw new Error(`${name}: the display role may only read`)
-  if (opts.displayKey && (method !== 'GET' || !opts.display || !path.startsWith('display/'))) throw new Error(`${name}: a display-key route must be a GET under display/`)
+  if (opts.displayWrite) {
+    if (method !== 'POST' || !opts.display || !opts.displayKey || !path.startsWith('display/')) throw new Error(`${name}: a display write must be a POST display-key route under display/`)
+  } else {
+    if (opts.display && method !== 'GET') throw new Error(`${name}: the display role may only read`)
+    if (opts.displayKey && (method !== 'GET' || !opts.display || !path.startsWith('display/'))) throw new Error(`${name}: a display-key route must be a GET under display/`)
+  }
   app.http(name, {
     methods: [method],
     route: path,
@@ -79,6 +89,11 @@ export async function run(
     if (caller.role === 'display' && !opts.display && !opts.pairing) throw new HttpError(403, 'DISPLAY_READ_ONLY', 'The display can only read')
     if (opts.roles && !opts.roles.includes(caller.role)) throw new HttpError(403, 'FORBIDDEN', 'Admin only')
 
+    // SameSite=Strict already keeps the display cookie off requests from other sites. Requiring JSON is a
+    // second lock on the only route the key can write through: a form on another site can't send it.
+    if (opts.displayWrite && !(req.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) {
+      throw new HttpError(415, 'JSON_ONLY', 'Body must be sent as JSON')
+    }
     let body: unknown
     if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
       body = await req.json().catch(() => {

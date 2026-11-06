@@ -1,6 +1,6 @@
 import { notFound } from '../lib/errors'
 import type { Handler } from '../lib/http'
-import { parse, taskPatchSchema, taskSchema } from '../lib/schemas'
+import { parse, taskDoneSchema, taskPatchSchema, taskSchema } from '../lib/schemas'
 import type { Task } from '../lib/types'
 import { nowIso, stamp, touch } from '../lib/util'
 
@@ -39,6 +39,22 @@ export const patchTask: Handler = async ({ store, caller }, params, _q, body) =>
     patch.completedBy = done ? caller.memberId : null
   }
   const saved = await store.upsert(touch(caller, task, patch))
+  return { body: saved }
+}
+
+/**
+ * Marks a to-do done or not done and changes nothing else. The wall display's only write (S34),
+ * so a copied display key can tick to-dos but not edit, add or delete them.
+ * completedBy is the caller: `display:<device id>` for a paired frame.
+ */
+export const setTaskDone: Handler = async ({ store, caller }, params, _q, body) => {
+  const { done } = parse(taskDoneSchema, body)
+  const task = await store.get<Task>(caller.familyId, params.id, 'task')
+  if (!task) throw notFound('Task not found')
+  if (done === task.done) return { body: task }
+  const saved = await store.upsert(
+    touch(caller, task, { done, completedAt: done ? nowIso() : null, completedBy: done ? caller.memberId : null }),
+  )
   return { body: saved }
 }
 

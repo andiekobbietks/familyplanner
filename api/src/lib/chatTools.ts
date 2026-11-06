@@ -35,7 +35,8 @@ function localTime(instant: string) {
   return `${dateOf(date, TIME_ZONE)} ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
 }
 
-const nameOf = (names: Map<string, string>, id?: string | null) => (id ? (names.get(id) ?? 'Someone') : undefined)
+/** A to-do ticked on the wall is completed by `display:<id>`, not a person. */
+const nameOf = (names: Map<string, string>, id?: string | null) => (id ? (names.get(id) ?? (id.startsWith('display:') ? 'the wall display' : 'Someone')) : undefined)
 
 interface Tool<S extends z.ZodTypeAny = z.ZodTypeAny> {
   name: string

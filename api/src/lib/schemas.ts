@@ -29,6 +29,8 @@ export const taskSchema = z.object({
   notes: long.optional(),
 })
 export const taskPatchSchema = taskSchema.partial().extend({ done: z.boolean().optional() })
+/** The wall display's only write (S34): done or not done, nothing else. */
+export const taskDoneSchema = z.object({ done: z.boolean() })
 
 export const planCellSchema = z.object({ text: title })
 
