@@ -1,6 +1,6 @@
 import { badRequest, notFound } from '../lib/errors'
 import type { Handler } from '../lib/http'
-import { eraseSchema, inviteSchema, parse, settingsPatchSchema } from '../lib/schemas'
+import { eraseSchema, inviteSchema, memberRenameSchema, parse, settingsPatchSchema } from '../lib/schemas'
 import type { List, Member, Settings } from '../lib/types'
 import { memberColour, PALETTE } from '../lib/caller'
 import { stamp, touch } from '../lib/util'
@@ -49,6 +49,15 @@ export const invite: Handler = async ({ store, caller }, _p, _q, body) => {
       instructions: `Ask ${email} to sign in to this site with the Microsoft account for that address.`,
     },
   }
+}
+
+/** Admin: set a member's display name, for someone who hasn't changed it from their email. Nothing else changes. */
+export const renameMember: Handler = async ({ store, caller }, params, _q, body) => {
+  const { displayName } = parse(memberRenameSchema, body)
+  const member = await store.get<Member>(caller.familyId, params.id, 'member')
+  if (!member) throw notFound('Member not found')
+  const { providerUserId: _pid, ...saved } = await store.upsert(touch(caller, member, { displayName }))
+  return { body: { ...saved, colour: memberColour(saved.colour) } }
 }
 
 /** Revokes access on their next request (S17); history stays attributed. */

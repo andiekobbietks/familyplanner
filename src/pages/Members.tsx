@@ -14,9 +14,23 @@ export function Members() {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('member')
   const [instructions, setInstructions] = useState('')
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['members'] })
     void qc.invalidateQueries({ queryKey: ['people'] })
+  }
+
+  const rename = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!renaming?.name.trim()) return
+    try {
+      await mutations.renameMember(renaming.id, renaming.name.trim())
+      setRenaming(null)
+      invalidate()
+      void qc.invalidateQueries({ queryKey: ['me'] })
+    } catch (err) {
+      toast((err as Error).message)
+    }
   }
 
   const invite = async (e: FormEvent) => {
@@ -49,9 +63,32 @@ export function Members() {
             {members.map((m) => (
               <tr key={m.id} style={m.active ? undefined : { opacity: 0.5 }}>
                 <td>
-                  <span className="row">
-                    <Avatar person={m} /> {m.displayName}
-                  </span>
+                  {renaming?.id === m.id ? (
+                    <form className="row" onSubmit={rename}>
+                      <input
+                        aria-label={`New name for ${m.displayName}`}
+                        value={renaming.name}
+                        onChange={(e) => setRenaming({ id: m.id, name: e.target.value })}
+                        onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)}
+                        maxLength={200}
+                        autoFocus
+                        required
+                      />
+                      <button className="btn sm primary" type="submit" disabled={!renaming.name.trim()}>
+                        Save
+                      </button>
+                      <button className="btn sm" type="button" onClick={() => setRenaming(null)}>
+                        Cancel
+                      </button>
+                    </form>
+                  ) : (
+                    <span className="row">
+                      <Avatar person={m} /> {m.displayName}
+                      <button className="btn sm" type="button" onClick={() => setRenaming({ id: m.id, name: m.displayName })}>
+                        Rename
+                      </button>
+                    </span>
+                  )}
                 </td>
                 <td>{m.email}</td>
                 <td>

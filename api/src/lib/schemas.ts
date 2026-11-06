@@ -66,6 +66,9 @@ export const mePatchSchema = z.object({
   colour: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
 })
 
+/** An admin renaming a member. Only the name: role and colour are not changed this way. */
+export const memberRenameSchema = z.object({ displayName: title })
+
 export const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(200),
   role: z.enum(['admin', 'member', 'display']),

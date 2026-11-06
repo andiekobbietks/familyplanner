@@ -86,6 +86,7 @@ export const mutations = {
   patchMe: (body: { displayName?: string; colour?: string }) => api<Me>('/me', { method: 'PATCH', json: body }),
   patchSettings: (body: { breakfastEnabled?: boolean; defaultListId?: string | null }) => api<Settings>('/settings', { method: 'PATCH', json: body }),
   invite: (email: string, role: string) => api<{ member: MemberRecord; instructions: string }>('/members/invite', { method: 'POST', json: { email, role } }),
+  renameMember: (id: string, displayName: string) => api<MemberRecord>(`/members/${id}`, { method: 'PATCH', json: { displayName } }),
   removeMember: (id: string) => api<void>(`/members/${id}`, { method: 'DELETE' }),
   createDisplay: (name: string) => api<{ id: string; name: string; key: string }>('/display-devices', { method: 'POST', json: { name } }),
   revokeDisplay: (id: string) => api<void>(`/display-devices/${id}`, { method: 'DELETE' }),

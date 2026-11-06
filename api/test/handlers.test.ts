@@ -9,7 +9,7 @@ import { setPlanCell, copyWeek, getPlan } from '../src/handlers/plan'
 import { getPeople, patchMe } from '../src/handlers/me'
 import { createTask, deleteTask, patchTask } from '../src/handlers/tasks'
 import { addItem, deleteItem, getItems, getShopping, patchItem } from '../src/handlers/lists'
-import { erase, exportAll, getMembers, invite, removeMember } from '../src/handlers/admin'
+import { erase, exportAll, getMembers, invite, removeMember, renameMember } from '../src/handlers/admin'
 import { getWeather } from '../src/handlers/weather'
 import { assignChore, copyChoreWeek, createChore, deleteChore, getChores, patchChore, unassignChore } from '../src/handlers/chores'
 import { createRecipe, deleteRecipe, getRecipes, intakeRecipes, patchRecipe } from '../src/handlers/recipes'
@@ -447,4 +447,31 @@ describe('the wall shopping panel', () => {
     for (const l of await store.byType<List>('home', 'list')) await store.delete('home', l.id)
     expect(await shopping()).toBeNull()
   })
+})
+
+describe('an admin renaming a member', () => {
+  const rename = (id: string, body: unknown) => renameMember(ctx, { id }, q(), body)
+
+  it('sets the display name and nothing else', async () => {
+    const before = (await store.get<Member>('home', 'm-charlie', 'member'))!
+    const res = await rename('m-charlie', { displayName: '  Chaz ', role: 'admin', colour: '#000000', email: 'x@example.com' })
+    expect(res.body).toMatchObject({ id: 'm-charlie', displayName: 'Chaz', role: 'member', email: before.email, colour: before.colour })
+    expect(res.body).not.toHaveProperty('providerUserId')
+    const after = (await store.get<Member>('home', 'm-charlie', 'member'))!
+    expect(after).toMatchObject({ displayName: 'Chaz', role: before.role, email: before.email, colour: before.colour })
+  })
+
+  it('refuses an empty name and an unknown member', async () => {
+    await expect(rename('m-charlie', { displayName: '   ' })).rejects.toBeInstanceOf(ValidationError)
+    await expect(rename('nobody', { displayName: 'X' })).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('is admin only', async () => {
+    setStore(store)
+    const req = { method: 'PATCH', headers: new Headers({ 'x-ms-client-principal': principal('dev-charlie', 'charlie@example.com', []) }), params: { id: 'm-jo' }, query: q(), json: async () => ({ displayName: 'Hacked' }) }
+    const res = await run(req as never, { log() {}, warn() {}, error() {} } as never, 'members/{id}', { roles: ['admin'] }, renameMember)
+    expect(res.status).toBe(403)
+    expect((await store.get<Member>('home', 'm-jo', 'member'))?.displayName).toBe('Jo')
+  })
+
 })

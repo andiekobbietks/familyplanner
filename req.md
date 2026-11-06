@@ -139,7 +139,7 @@ Cells saved while the app had a meal library hold a `mealId` rather than text. T
 - List of members with name, email, role, last login.
 - Invite a new member: email and role. They then sign in with that email.
 - Remove a member. Their historical actions remain attributed by display name.
-- Each member can set their own display name and colour.
+- Each member can set their own display name and colour. An admin can also rename any member, for someone still showing the start of their email address.
 - Planning settings: whether Breakfast is enabled (Lunch and Dinner are always on) and the default shopping list for quick add.
 - "Export all data" downloads a single JSON file containing every record. This doubles as the manual backup mechanism.
 - Import recipes from an org file (Section 5.8).
@@ -377,6 +377,7 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | PATCH | `/settings` | Update settings (admin) |
 | GET | `/members` | Members (admin) |
 | POST | `/members/invite` | Create an invitation (admin) |
+| PATCH | `/members/{id}` | Rename a member (`{ displayName }` only; admin) |
 | DELETE | `/members/{id}` | Remove member (admin) |
 | PATCH | `/members/me` | Update own display name and colour |
 | GET | `/export` | Full JSON export (admin) |

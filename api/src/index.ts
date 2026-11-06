@@ -75,6 +75,7 @@ route('settings-patch', 'PATCH', 'settings', ADMIN, admin.patchSettings)
 
 route('members-get', 'GET', 'members', ADMIN, admin.getMembers)
 route('members-invite', 'POST', 'members/invite', ADMIN, admin.invite)
+route('members-rename', 'PATCH', 'members/{id}', ADMIN, admin.renameMember)
 route('members-remove', 'DELETE', 'members/{id}', ADMIN, admin.removeMember)
 
 route('export-get', 'GET', 'export', ADMIN, admin.exportAll)
