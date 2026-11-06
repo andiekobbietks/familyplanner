@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '../api/client'
 import { useCalendarEvents, useChores, usePlan, useSettings, useShopping, useTasks, useWeather } from '../api/hooks'
 import type { Me, Occurrence, PlanEntry, Slot, Weather } from '../api/types'
-import { Icon } from '../components/Icons'
+import { Icon, type IconName } from '../components/Icons'
 import { Avatar, usePersonMap } from '../components/People'
 import { addDays, fmtDayLong, fmtMonth, fmtTime, fmtWeekday, mondayOf, monthGrid, relativeDay, todayISO } from '../lib/dates'
 import { eventsByDay } from '../lib/events'
@@ -11,8 +11,14 @@ import { degrees, describeWeather } from '../lib/weather'
 
 /** How often the wall page refetches its data. */
 const REFRESH_MS = 60_000
-/** The month view is a glance: after this long the frame goes back to today on its own. */
-const MONTH_FOR_MS = 5 * 60_000
+/** Meals and Month are a glance: after this long the frame goes back to Today on its own. */
+const AWAY_FOR_MS = 5 * 60_000
+type View = 'today' | 'meals' | 'month'
+const VIEWS: { id: View; label: string; icon: IconName }[] = [
+  { id: 'today', label: 'Today', icon: 'home' },
+  { id: 'meals', label: 'Meals', icon: 'meals' },
+  { id: 'month', label: 'Month', icon: 'calendar' },
+]
 /** Events a month cell has room for at 1280×800, by the number of weeks the month spans. */
 const MONTH_CELL_EVENTS: Record<number, number> = { 4: 4, 5: 3, 6: 2 }
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
@@ -66,11 +72,11 @@ function DisplayBoard() {
   const today = todayISO()
   const lastDay = addDays(today, 6)
   const qc = useQueryClient()
-  const [view, setView] = useState<'today' | 'month'>('today')
+  const [view, setView] = useState<View>('today')
 
   useEffect(() => {
-    if (view !== 'month') return
-    const t = setTimeout(() => setView('today'), MONTH_FOR_MS)
+    if (view === 'today') return
+    const t = setTimeout(() => setView('today'), AWAY_FOR_MS)
     return () => clearTimeout(t)
   }, [view])
 
@@ -107,14 +113,20 @@ function DisplayBoard() {
           <div className="wall-date">{fmtDayLong(today)}</div>
         </div>
         {weather?.forecast && <WallWeather weather={weather} today={today} />}
-        <button type="button" className="wall-flip" aria-pressed={view === 'month'} onClick={() => setView(view === 'month' ? 'today' : 'month')}>
-          <Icon name={view === 'month' ? 'home' : 'calendar'} size={30} />
-          {view === 'month' ? 'Today' : 'Month'}
-        </button>
+        <nav className="wall-views" aria-label="View">
+          {VIEWS.map((v) => (
+            <button key={v.id} type="button" className="wall-flip" aria-pressed={view === v.id} onClick={() => setView(v.id)}>
+              <Icon name={v.icon} size={28} />
+              {v.label}
+            </button>
+          ))}
+        </nav>
       </header>
 
       {view === 'month' ? (
         <MonthView today={today} nowMs={now.getTime()} />
+      ) : view === 'meals' ? (
+        <MealsView today={today} plan={plan} slots={slots} weather={weather} />
       ) : (
       <main className="wall-body">
         <div className="wall-col">
@@ -289,6 +301,45 @@ function ShoppingPanel() {
         </ul>
       )}
     </section>
+  )
+}
+
+/** The next seven days' meals, days across and meals down, so the week's cooking is clear from across the kitchen. */
+function MealsView({ today, plan, slots, weather }: { today: string; plan: PlanEntry[]; slots: Slot[]; weather?: Weather }) {
+  const days = Array.from({ length: 7 }, (_, i) => addDays(today, i))
+  return (
+    <main className="wall-meals-week" style={{ gridTemplateRows: `auto repeat(${slots.length}, minmax(0, 1fr))` }} aria-label="Meals this week">
+      <div className="wall-mw-corner" />
+      {days.map((d) => {
+        const forecast = weather?.forecast?.days.find((w) => w.date === d)
+        const look = forecast && describeWeather(forecast.code)
+        return (
+          <div key={d} className={`wall-mw-day${d === today ? ' wall-is-today' : ''}`}>
+            <span>{d === today ? 'Today' : fmtWeekday(d)}</span>
+            <b className="wall-num">{Number(d.slice(8))}</b>
+            {forecast && look && (
+              <span className="wall-day-weather" role="img" aria-label={`${look.label}, high ${degrees(forecast.high)}`}>
+                <Icon name={look.icon} size={22} />
+                {degrees(forecast.high)}
+              </span>
+            )}
+          </div>
+        )
+      })}
+      {slots.map((slot) => (
+        <Fragment key={slot}>
+          <div className="wall-mw-slot">{cap(slot)}</div>
+          {days.map((d) => {
+            const text = plan.find((p) => p.date === d && p.slot === slot)?.text
+            return (
+              <div key={d} className={`wall-mw-cell${d === today ? ' wall-mw-today' : ''}`}>
+                {text ?? <span className="wall-muted">–</span>}
+              </div>
+            )
+          })}
+        </Fragment>
+      ))}
+    </main>
   )
 }
 
