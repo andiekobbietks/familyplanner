@@ -482,6 +482,24 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 .wall-mw-slot { display: flex; align-items: center; padding: 0 0.9rem; font-size: 1.05rem; font-weight: 700; color: var(--muted); }
 .wall-mw-cell { padding: 0.7rem 0.75rem; font-size: 1.2rem; font-weight: 600; line-height: 1.3; overflow: hidden; overflow-wrap: anywhere; }
 .wall-mw-today { background: var(--sunk); background: color-mix(in srgb, var(--sun) 14%, var(--card)); }
+.wall-mw-recipe { display: flex; align-items: flex-start; gap: 0.4rem; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 0.2em; }
+.wall-mw-recipe svg { flex-shrink: 0; color: var(--accent); margin-top: 0.1rem; }
+.wall-recipes { flex: 1; min-height: 0; display: grid; grid-template-columns: 22rem minmax(0, 1fr); gap: 1rem; }
+.wall-recipe-pick { display: flex; flex-direction: column; gap: 0.6rem; }
+.wall-search { font: inherit; font-size: 1.15rem; padding: 0.6rem 0.8rem; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); user-select: text; }
+.wall-tags { display: flex; gap: 0.4rem; overflow-x: auto; flex-shrink: 0; padding-bottom: 0.2rem; }
+.wall-tag { flex-shrink: 0; min-height: 40px; padding: 0 0.9rem; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); font: inherit; font-size: 1rem; font-weight: 600; touch-action: manipulation; }
+.wall-tag[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.wall-recipe-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; }
+.wall-recipe-list button { display: block; width: 100%; min-height: 48px; padding: 0.5rem 0.6rem; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--text); font: inherit; font-size: 1.15rem; font-weight: 600; text-align: left; touch-action: manipulation; }
+.wall-recipe-list button[aria-pressed='true'] { background: var(--sunk); border-radius: 8px; }
+.wall-recipe { overflow-y: auto; }
+.wall-recipe-empty { margin-top: 2rem; text-align: center; font-size: 1.3rem; }
+.wall-card h2.wall-recipe-title { font-family: var(--display); font-size: 2rem; text-transform: none; letter-spacing: 0; color: var(--text); margin: 0 0 0.2rem; }
+.wall-recipe-body { display: grid; grid-template-columns: minmax(14rem, 0.8fr) 1.4fr; gap: 1.5rem; margin-top: 0.8rem; font-size: 1.2rem; line-height: 1.45; }
+.wall-recipe-body h2 { margin-top: 0; }
+.wall-recipe-body ul, .wall-recipe-body ol { margin: 0 0 0.8rem; padding-left: 1.3rem; }
+.wall-recipe-body li { margin-bottom: 0.35rem; }
 .wall-month-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .wall-month-title { font-family: var(--display); font-size: 1.6rem; font-weight: 800; margin: 0 0 0.5rem; }
 .wall-month { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }

@@ -23,7 +23,7 @@ const { ValidationError } = await import('../src/lib/schemas')
 process.env.FAMILY_ID = 'home'
 
 /** The same list as display.test.ts: what the wall page reads. */
-const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get']
+const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'recipes-get']
 const quiet = { log() {}, warn() {}, error() {} }
 const sha = (s: string) => createHash('sha256').update(s).digest('hex')
 const principal = (userId: string, email: string) =>

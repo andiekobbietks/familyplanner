@@ -9,6 +9,7 @@ import { Modal } from '../components/Modal'
 import { RecipeEditor } from '../components/RecipeEditor'
 import { useToast } from '../components/Toast'
 import { fmtDay, mondayOf, todayISO } from '../lib/dates'
+import { RecipeText } from '../components/RecipeText'
 import { sourceUrl, textBlocks } from '../lib/recipes'
 
 export function RecipeDetail() {
@@ -74,9 +75,9 @@ export function RecipeDetail() {
 
       {(recipe.ingredients || recipe.method || recipe.notes) && (
         <div className="card recipe-body">
-          {recipe.ingredients && <TextSection title="Ingredients" text={recipe.ingredients} />}
-          {recipe.method && <TextSection title="Method" text={recipe.method} numbered />}
-          {recipe.notes && <TextSection title="Notes" text={recipe.notes} className="recipe-notes" />}
+          {recipe.ingredients && <RecipeText title="Ingredients" text={recipe.ingredients} />}
+          {recipe.method && <RecipeText title="Method" text={recipe.method} numbered />}
+          {recipe.notes && <RecipeText title="Notes" text={recipe.notes} className="recipe-notes" />}
         </div>
       )}
 
@@ -97,26 +98,6 @@ export function RecipeDetail() {
       {sheet === 'plan' && <PutOnPlan recipe={recipe} onClose={close} />}
       {sheet === 'edit' && <RecipeEditor recipe={recipe} onClose={close} onSaved={close} onDeleted={() => navigate('/meals/recipes', { replace: true })} />}
     </>
-  )
-}
-
-/** Numbering restarts after a subheading, because a sub-recipe's steps are its own. */
-function TextSection({ title, text, numbered = false, className }: { title: string; text: string; numbered?: boolean; className?: string }) {
-  const List = numbered ? 'ol' : 'ul'
-  return (
-    <section className={className}>
-      <h2>{title}</h2>
-      {textBlocks(text).map((b, i) => (
-        <div key={i}>
-          {b.heading && <h3>{b.heading}</h3>}
-          <List>
-            {b.lines.map((l, j) => (
-              <li key={j}>{l}</li>
-            ))}
-          </List>
-        </div>
-      ))}
-    </section>
   )
 }
 

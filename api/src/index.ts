@@ -51,7 +51,7 @@ route('plan-copy', 'POST', 'plan/copy-week', ANY, plan.copyWeek)
 route('plan-set', 'PUT', 'plan/{date}/{slot}', ANY, plan.setPlanCell)
 route('plan-clear', 'DELETE', 'plan/{date}/{slot}', ANY, plan.clearPlanCell)
 
-route('recipes-get', 'GET', 'recipes', ANY, recipes.getRecipes)
+view('recipes-get', 'recipes', recipes.getRecipes)
 route('recipes-create', 'POST', 'recipes', ANY, recipes.createRecipe)
 route('recipes-patch', 'PATCH', 'recipes/{id}', ANY, recipes.patchRecipe)
 route('recipes-delete', 'DELETE', 'recipes/{id}', ANY, recipes.deleteRecipe)

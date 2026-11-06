@@ -49,7 +49,7 @@ Explicitly out of scope for the first release:
 |---|---|---|
 | `admin` | Parents | Everything a member can do, plus invite and remove members, delete lists, export all data. |
 | `member` | Other family members | Create, edit and complete list items and tasks. See everything. |
-| `display` | The kitchen wall screen (photoframe) | Read only what `/display` shows: calendar, today's meals, tasks due, the default shopping list's unchecked items, the coming week, weather and chores. No writes, chat, other lists, recipes, members or export. Sees only the `/display` page. |
+| `display` | The kitchen wall screen (photoframe) | Read only what `/display` shows: calendar, today's meals, tasks due, the default shopping list's unchecked items, the coming week, the meal plan, recipes, weather and chores. No writes, chat, other lists, members or export. Sees only the `/display` page. |
 
 Notes:
 
@@ -332,7 +332,7 @@ Soft delete is not needed. Deletes are real, and the periodic backup plus manual
 
 ## 10. API surface
 
-All routes under `/api`, JSON in and out, role `member` or `admin` unless marked. The `display` role may call only `GET /me`, `/people`, `/external-events`, `/tasks`, `/plan`, `/chores`, `/weather`, `/settings` and `/shopping`.
+All routes under `/api`, JSON in and out, role `member` or `admin` unless marked. The `display` role may call only `GET /me`, `/people`, `/external-events`, `/tasks`, `/plan`, `/chores`, `/weather`, `/settings`, `/shopping` and `/recipes`.
 
 | Method | Route | Purpose |
 |---|---|---|
@@ -359,7 +359,7 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | PATCH | `/recipes/{id}` | Update recipe |
 | DELETE | `/recipes/{id}` | Delete recipe |
 | POST | `/integration/recipes` | Add recipes whose titles are new, for Hermes. Token, not a login (S31). Returns `{ added, skipped, failed }` |
-| GET | `/display/{me,people,external-events,tasks,plan,chores,weather,settings,shopping}` | The wall page's reads: a display key cookie or a signed-in member (S34) |
+| GET | `/display/{me,people,external-events,tasks,plan,chores,weather,settings,shopping,recipes}` | The wall page's reads: a display key cookie or a signed-in member (S34) |
 | POST | `/display/pair` | `{ key }` once from the pairing page. 204 with the display cookie, or 403 (S34) |
 | GET | `/display-devices` | Admin. Displays, without keys or hashes |
 | POST | `/display-devices` | Admin. `{ name }`. Returns `{ id, name, key }`, the only time the key is shown |

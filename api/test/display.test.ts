@@ -19,7 +19,7 @@ const { getCaller } = await import('../src/lib/caller')
 process.env.FAMILY_ID = 'home'
 
 /** What the wall display may read. Anything added here should be something its page shows. */
-const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get']
+const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'recipes-get']
 
 const principal = (userId: string, email: string) =>
   Buffer.from(JSON.stringify({ identityProvider: 'aad', userId, userDetails: email, userRoles: ['anonymous', 'authenticated'] })).toString('base64')

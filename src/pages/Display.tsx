@@ -1,23 +1,28 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '../api/client'
-import { useCalendarEvents, useChores, usePlan, useSettings, useShopping, useTasks, useWeather } from '../api/hooks'
+import { useCalendarEvents, useChores, usePlan, useRecipes, useSettings, useShopping, useTasks, useWeather } from '../api/hooks'
 import type { Me, Occurrence, PlanEntry, Slot, Weather } from '../api/types'
 import { Icon, type IconName } from '../components/Icons'
 import { Avatar, usePersonMap } from '../components/People'
 import { addDays, fmtDayLong, fmtMonth, fmtTime, fmtWeekday, mondayOf, monthGrid, relativeDay, todayISO } from '../lib/dates'
 import { eventsByDay } from '../lib/events'
+import { findRecipe, matchesSearch } from '../lib/recipes'
+import { RecipeText } from '../components/RecipeText'
 import { degrees, describeWeather } from '../lib/weather'
 
 /** How often the wall page refetches its data. */
 const REFRESH_MS = 60_000
 /** Meals and Month are a glance: after this long the frame goes back to Today on its own. */
 const AWAY_FOR_MS = 5 * 60_000
-type View = 'today' | 'meals' | 'month'
+/** A recipe is followed while cooking, so it stays up for this long after the last touch. */
+const RECIPE_FOR_MS = 30 * 60_000
+type View = 'today' | 'meals' | 'month' | 'recipes'
 const VIEWS: { id: View; label: string; icon: IconName }[] = [
   { id: 'today', label: 'Today', icon: 'home' },
   { id: 'meals', label: 'Meals', icon: 'meals' },
   { id: 'month', label: 'Month', icon: 'calendar' },
+  { id: 'recipes', label: 'Recipes', icon: 'book' },
 ]
 /** Events a month cell has room for at 1280×800, by the number of weeks the month spans. */
 const MONTH_CELL_EVENTS: Record<number, number> = { 4: 4, 5: 3, 6: 2 }
@@ -73,12 +78,19 @@ function DisplayBoard() {
   const lastDay = addDays(today, 6)
   const qc = useQueryClient()
   const [view, setView] = useState<View>('today')
+  const [recipeId, setRecipeId] = useState<string>()
+  const [touchedAt, setTouchedAt] = useState(0)
 
   useEffect(() => {
     if (view === 'today') return
-    const t = setTimeout(() => setView('today'), AWAY_FOR_MS)
+    const t = setTimeout(() => setView('today'), view === 'recipes' ? RECIPE_FOR_MS : AWAY_FOR_MS)
     return () => clearTimeout(t)
-  }, [view])
+  }, [view, touchedAt])
+
+  const openRecipe = (id: string) => {
+    setRecipeId(id)
+    setView('recipes')
+  }
 
   const { events, calendars, unavailable } = useCalendarEvents(today, lastDay)
   const { data: settings } = useSettings()
@@ -106,7 +118,7 @@ function DisplayBoard() {
   const showCalendar = calendars.length > 1
 
   return (
-    <div className="wall">
+    <div className="wall" onPointerDown={() => setTouchedAt(Date.now())}>
       <header className="wall-top">
         <div>
           <div className="wall-clock">{fmtTime(now.toISOString())}</div>
@@ -115,7 +127,16 @@ function DisplayBoard() {
         {weather?.forecast && <WallWeather weather={weather} today={today} />}
         <nav className="wall-views" aria-label="View">
           {VIEWS.map((v) => (
-            <button key={v.id} type="button" className="wall-flip" aria-pressed={view === v.id} onClick={() => setView(v.id)}>
+            <button
+              key={v.id}
+              type="button"
+              className="wall-flip"
+              aria-pressed={view === v.id}
+              onClick={() => {
+                if (v.id === 'recipes' && view !== 'recipes') setRecipeId(undefined)
+                setView(v.id)
+              }}
+            >
               <Icon name={v.icon} size={28} />
               {v.label}
             </button>
@@ -126,7 +147,9 @@ function DisplayBoard() {
       {view === 'month' ? (
         <MonthView today={today} nowMs={now.getTime()} />
       ) : view === 'meals' ? (
-        <MealsView today={today} plan={plan} slots={slots} weather={weather} />
+        <MealsView today={today} plan={plan} slots={slots} weather={weather} onRecipe={openRecipe} />
+      ) : view === 'recipes' ? (
+        <RecipesView chosenId={recipeId} onChoose={setRecipeId} tonight={plan.find((p) => p.date === today && p.slot === 'dinner')?.text} />
       ) : (
       <main className="wall-body">
         <div className="wall-col">
@@ -305,7 +328,8 @@ function ShoppingPanel() {
 }
 
 /** The next seven days' meals, days across and meals down, so the week's cooking is clear from across the kitchen. */
-function MealsView({ today, plan, slots, weather }: { today: string; plan: PlanEntry[]; slots: Slot[]; weather?: Weather }) {
+function MealsView({ today, plan, slots, weather, onRecipe }: { today: string; plan: PlanEntry[]; slots: Slot[]; weather?: Weather; onRecipe: (id: string) => void }) {
+  const { data: recipes = [] } = useRecipes()
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i))
   return (
     <main className="wall-meals-week" style={{ gridTemplateRows: `auto repeat(${slots.length}, minmax(0, 1fr))` }} aria-label="Meals this week">
@@ -331,14 +355,97 @@ function MealsView({ today, plan, slots, weather }: { today: string; plan: PlanE
           <div className="wall-mw-slot">{cap(slot)}</div>
           {days.map((d) => {
             const text = plan.find((p) => p.date === d && p.slot === slot)?.text
+            const recipe = text ? findRecipe(recipes, text) : undefined
             return (
               <div key={d} className={`wall-mw-cell${d === today ? ' wall-mw-today' : ''}`}>
-                {text ?? <span className="wall-muted">–</span>}
+                {recipe ? (
+                  <button type="button" className="wall-mw-recipe" onClick={() => onRecipe(recipe.id)}>
+                    {text}
+                    <Icon name="book" size={20} />
+                  </button>
+                ) : (
+                  (text ?? <span className="wall-muted">–</span>)
+                )}
               </div>
             )
           })}
         </Fragment>
       ))}
+    </main>
+  )
+}
+
+/**
+ * Look up a recipe while cooking: search and tags on the left, the chosen recipe on the right.
+ * Tonight's dinner opens first if it is a recipe. Read-only, like the rest of the wall.
+ */
+function RecipesView({ chosenId, onChoose, tonight }: { chosenId?: string; onChoose: (id: string) => void; tonight?: string }) {
+  const { data: recipes = [], isLoading } = useRecipes()
+  const [search, setSearch] = useState('')
+  const [tag, setTag] = useState<string | null>(null)
+  const tonightRecipe = tonight ? findRecipe(recipes, tonight) : undefined
+  const recipe = recipes.find((r) => r.id === chosenId) ?? tonightRecipe
+
+  const tags = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const r of recipes) for (const t of r.tags) counts.set(t, (counts.get(t) ?? 0) + 1)
+    return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([t]) => t)
+  }, [recipes])
+  const shown = recipes.filter((r) => matchesSearch(r, search) && (!tag || r.tags.includes(tag)))
+  const meta = recipe && [recipe.serves && `Serves ${recipe.serves}`, recipe.time].filter(Boolean).join(' · ')
+
+  return (
+    <main className="wall-recipes">
+      <section className="wall-card wall-recipe-pick" aria-label="Find a recipe">
+        <input className="wall-search" type="search" aria-label="Search recipes" placeholder="Search name or ingredient" value={search} onChange={(e) => setSearch(e.target.value)} />
+        {tags.length > 0 && (
+          <div className="wall-tags" role="group" aria-label="Filter by tag">
+            {tags.map((t) => (
+              <button key={t} type="button" className="wall-tag" aria-pressed={tag === t} onClick={() => setTag(tag === t ? null : t)}>
+                {t}
+              </button>
+            ))}
+          </div>
+        )}
+        <ul className="wall-recipe-list">
+          {tonightRecipe && !search && !tag && (
+            <li>
+              <button type="button" aria-pressed={recipe?.id === tonightRecipe.id} onClick={() => onChoose(tonightRecipe.id)}>
+                <span className="wall-sub">Tonight</span>
+                {tonightRecipe.title}
+              </button>
+            </li>
+          )}
+          {shown.map((r) => (
+            <li key={r.id}>
+              <button type="button" aria-pressed={recipe?.id === r.id} onClick={() => onChoose(r.id)}>
+                {r.title}
+              </button>
+            </li>
+          ))}
+        </ul>
+        {!isLoading && recipes.length > 0 && shown.length === 0 && <p className="wall-muted">Nothing matches.</p>}
+        {!isLoading && recipes.length === 0 && <p className="wall-muted">No recipes yet.</p>}
+      </section>
+
+      <section className="wall-card wall-recipe" aria-label={recipe?.title ?? 'Recipe'}>
+        {!recipe ? (
+          <p className="wall-muted wall-recipe-empty">Pick a recipe on the left.</p>
+        ) : (
+          <>
+            <h2 className="wall-recipe-title">{recipe.title}</h2>
+            {meta && <p className="wall-muted">{meta}</p>}
+            {recipe.summary && <p>{recipe.summary}</p>}
+            <div className="wall-recipe-body">
+              {recipe.ingredients && <RecipeText title="Ingredients" text={recipe.ingredients} className="wall-ingredients" />}
+              <div>
+                {recipe.method && <RecipeText title="Method" text={recipe.method} numbered />}
+                {recipe.notes && <RecipeText title="Notes" text={recipe.notes} />}
+              </div>
+            </div>
+          </>
+        )}
+      </section>
     </main>
   )
 }
