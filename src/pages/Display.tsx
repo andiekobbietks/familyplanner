@@ -129,10 +129,7 @@ function DisplayBoard() {
   return (
     <div className="wall" onPointerDown={() => setTouchedAt(Date.now())}>
       <header className="wall-top">
-        <div>
-          <div className="wall-clock">{fmtTime(now.toISOString())}</div>
-          <div className="wall-date">{fmtDayLong(today)}</div>
-        </div>
+        <WallTimer time={fmtTime(now.toISOString())} date={fmtDayLong(today)} />
         {weather?.forecast && <WallWeather weather={weather} today={today} />}
         <nav className="wall-views" aria-label="View">
           {VIEWS.map((v) => (
@@ -186,6 +183,157 @@ function DisplayBoard() {
         <Chores week={mondayOf(today)} />
       </main>
       )}
+    </div>
+  )
+}
+
+/** The kitchen timer's choices, in minutes. */
+export const TIMER_MINUTES = [1, 2, 5, 10]
+
+/** Time left as m:ss, rounded up, so it reads 0:00 only once the time is up. */
+export function fmtCountdown(ms: number) {
+  const s = Math.max(0, Math.ceil(ms / 1000))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+/**
+ * The clock, which opens a countdown timer when tapped. No sound: when the time is up the panel opens on its own
+ * and flashes until someone taps OK. Closing the panel while it runs leaves the countdown under the clock.
+ * It ticks on its own, a few times a second and only while running, so the rest of the wall isn't redrawn.
+ */
+type TimerRun = { endsAt: number; minutes: number }
+type TimerState = { run?: TimerRun; open: boolean }
+const TIMER_KEY = 'wall-timer'
+/** A finished timer still showing "Time's up" is dropped on reload once it's this old. */
+const TIMER_KEEP_DONE_MS = 60 * 60_000
+
+/**
+ * The saved timer, if it should carry on after a reload. The kiosk reloads the page every few hours and when the
+ * connection comes back, and the page reloads itself overnight, so a running timer is kept in the frame's storage.
+ */
+export function restoreTimer(raw: string | null, nowMs: number): TimerState {
+  try {
+    const s = JSON.parse(raw ?? '') as TimerState
+    const run = s?.run
+    if (!run || !Number.isFinite(run.endsAt) || !TIMER_MINUTES.includes(run.minutes)) return { open: false }
+    if (run.endsAt > nowMs + run.minutes * 60_000 || nowMs - run.endsAt > TIMER_KEEP_DONE_MS) return { open: false }
+    return { run: { endsAt: run.endsAt, minutes: run.minutes }, open: !!s.open }
+  } catch {
+    return { open: false }
+  }
+}
+
+function loadTimer(): TimerState {
+  try {
+    return restoreTimer(localStorage.getItem(TIMER_KEY), Date.now())
+  } catch {
+    return { open: false }
+  }
+}
+
+function WallTimer({ time, date }: { time: string; date: string }) {
+  const [saved] = useState(loadTimer)
+  const [open, setOpen] = useState(saved.open)
+  const [run, setRun] = useState<TimerRun | undefined>(saved.run)
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    try {
+      if (run) localStorage.setItem(TIMER_KEY, JSON.stringify({ run, open }))
+      else localStorage.removeItem(TIMER_KEY)
+    } catch {
+      // Storage unavailable: the timer still works, it just won't survive a reload.
+    }
+  }, [run, open])
+  useEffect(() => {
+    if (!run) return
+    setNowMs(Date.now())
+    const t = setInterval(() => setNowMs(Date.now()), 250)
+    return () => clearInterval(t)
+  }, [run])
+  const done = !!run && nowMs >= run.endsAt
+  const start = (minutes: number) => {
+    setNowMs(Date.now())
+    setRun({ endsAt: Date.now() + minutes * 60_000, minutes })
+  }
+  const stop = () => {
+    setRun(undefined)
+    setOpen(false)
+  }
+
+  return (
+    <div>
+      <button type="button" className="wall-clock" aria-label={`${time}. Open the timer`} onClick={() => setOpen(true)}>
+        {time}
+      </button>
+      {run && !open && !done ? (
+        <button type="button" className="wall-timer-chip" onClick={() => setOpen(true)}>
+          Timer {fmtCountdown(run.endsAt - nowMs)}
+        </button>
+      ) : (
+        <div className="wall-date">{date}</div>
+      )}
+      {(open || done) && <TimerPanel run={run} nowMs={nowMs} onStart={start} onCancel={stop} onClose={() => setOpen(false)} />}
+    </div>
+  )
+}
+
+export function TimerPanel({
+  run,
+  nowMs,
+  onStart,
+  onCancel,
+  onClose,
+}: {
+  run?: { endsAt: number; minutes: number }
+  nowMs: number
+  onStart: (minutes: number) => void
+  onCancel: () => void
+  onClose: () => void
+}) {
+  const left = run ? run.endsAt - nowMs : 0
+  const done = !!run && left <= 0
+  const shown = run ? Math.min(left, run.minutes * 60_000) : 0
+  return (
+    <div className="wall-timer-backdrop" onClick={done ? undefined : onClose}>
+      <div
+        className={done ? 'wall-timer wall-timer-done' : 'wall-timer'}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Timer"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {done ? (
+          <>
+            <div className="wall-timer-big" role="alert">Time's up</div>
+            <button type="button" className="wall-flip wall-timer-ok" onClick={onCancel}>OK</button>
+          </>
+        ) : (
+          <>
+            {run ? (
+              <>
+                <div className="wall-timer-big" role="timer">{fmtCountdown(shown)}</div>
+                <div className="wall-timer-bar"><span style={{ width: `${(100 * shown) / (run.minutes * 60_000)}%` }} /></div>
+              </>
+            ) : (
+              <h2 className="wall-timer-title">Timer</h2>
+            )}
+            <div className="wall-timer-choices">
+              {TIMER_MINUTES.map((m) => (
+                <button key={m} type="button" className="wall-timer-choice" onClick={() => onStart(m)}>
+                  {m} min
+                </button>
+              ))}
+            </div>
+            <div className="wall-timer-actions">
+              {run && <button type="button" className="wall-flip wall-timer-cancel" onClick={onCancel}>Cancel timer</button>}
+              <button type="button" className="wall-flip" onClick={onClose}>
+                <Icon name="close" size={28} />
+                {run ? 'Hide' : 'Close'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }

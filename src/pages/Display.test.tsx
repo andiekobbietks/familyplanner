@@ -6,7 +6,7 @@ import type { Shopping, Task } from '../api/types'
 const shopping = vi.hoisted(() => ({ current: { data: undefined as Shopping | null | undefined, isSuccess: true } }))
 vi.mock('../api/hooks', () => ({ useShopping: () => shopping.current, usePeople: () => ({ data: [] }), mutations: {} }))
 
-const { ItemList, ShoppingPanel, TodoList } = await import('./Display')
+const { ItemList, ShoppingPanel, TimerPanel, TodoList, fmtCountdown, restoreTimer } = await import('./Display')
 
 describe('wall Today card: to-dos and shopping always show', () => {
   it('an empty to-do list still shows its heading', () => {
@@ -105,5 +105,56 @@ describe('wall Lists page: everything in full', () => {
 
   it('an empty list says so', () => {
     expect(renderToStaticMarkup(<ItemList items={[]} />)).toContain('Nothing to buy.')
+  })
+})
+
+describe('wall timer (tap the clock)', () => {
+  const noop = () => {}
+  const panel = (run: { endsAt: number; minutes: number } | undefined, nowMs: number) =>
+    renderToStaticMarkup(<TimerPanel run={run} nowMs={nowMs} onStart={noop} onCancel={noop} onClose={noop} />)
+
+  it('counts down as m:ss, rounding up so 0:00 means done', () => {
+    expect(fmtCountdown(10 * 60_000)).toBe('10:00')
+    expect(fmtCountdown(59_001)).toBe('1:00')
+    expect(fmtCountdown(59_000)).toBe('0:59')
+    expect(fmtCountdown(1)).toBe('0:01')
+    expect(fmtCountdown(0)).toBe('0:00')
+    expect(fmtCountdown(-5_000)).toBe('0:00')
+  })
+
+  it('offers 1, 2, 5 and 10 minutes', () => {
+    const html = panel(undefined, 0)
+    for (const m of [1, 2, 5, 10]) expect(html).toContain(`>${m} min</button>`)
+    expect(html).not.toContain('role="timer"')
+  })
+
+  it('while running shows the time left and a way to cancel', () => {
+    const html = panel({ endsAt: 300_000, minutes: 5 }, 30_000)
+    expect(html).toContain('<div class="wall-timer-big" role="timer">4:30</div>')
+    expect(html).toContain('Cancel timer')
+    expect(html).toContain('width:90%')
+  })
+
+  it('a running timer carries on after the page reloads', () => {
+    const now = 1_000_000
+    const saved = (run: unknown, open = false) => JSON.stringify({ run, open })
+    expect(restoreTimer(saved({ endsAt: now + 90_000, minutes: 5 }, true), now)).toEqual({ run: { endsAt: now + 90_000, minutes: 5 }, open: true })
+    // Finished while reloading: still shown, so "Time's up" isn't missed.
+    expect(restoreTimer(saved({ endsAt: now - 30_000, minutes: 1 }), now).run).toBeDefined()
+    // Long finished, nothing saved, or junk: back to the plain clock.
+    expect(restoreTimer(saved({ endsAt: now - 2 * 3600_000, minutes: 1 }), now)).toEqual({ open: false })
+    expect(restoreTimer(null, now)).toEqual({ open: false })
+    expect(restoreTimer('{nope', now)).toEqual({ open: false })
+    expect(restoreTimer(saved({ endsAt: now + 90_000, minutes: 7 }), now)).toEqual({ open: false })
+    // An end time further off than its own length (a clock change) is ignored.
+    expect(restoreTimer(saved({ endsAt: now + 20 * 60_000, minutes: 10 }), now)).toEqual({ open: false })
+  })
+
+  it("when time is up it says so, flashes and asks for OK", () => {
+    const html = panel({ endsAt: 60_000, minutes: 1 }, 60_000)
+    expect(html).toContain('wall-timer wall-timer-done')
+    expect(html).toContain("Time&#x27;s up")
+    expect(html).toContain('>OK</button>')
+    expect(html).not.toContain('min</button>')
   })
 })
