@@ -493,13 +493,25 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 /* Kitchen timer: opened by tapping the clock. Silent, so it has to be obvious from across the room. */
 .wall-timer-chip { display: inline-block; margin-top: 0.25rem; padding: 0.15rem 0.9rem; border: 0; border-radius: 999px; background: var(--accent); color: var(--on-accent); font: inherit; font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; cursor: pointer; touch-action: manipulation; }
 .wall-timer-backdrop { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); }
-.wall-timer { width: 900px; max-width: 94vw; display: flex; flex-direction: column; align-items: center; gap: 1.75rem; padding: 2rem 2.5rem; background: var(--card); color: var(--text); border-radius: var(--radius); box-shadow: var(--shadow); }
+.wall-timer { width: 1000px; max-width: 94vw; display: flex; flex-direction: column; align-items: center; gap: 1.5rem; padding: 1.75rem 2.5rem; background: var(--card); color: var(--text); border-radius: var(--radius); box-shadow: var(--shadow); }
 .wall-timer-title { margin: 0; font-family: var(--display); font-size: 3rem; font-weight: 800; }
 .wall-timer-big { font-family: var(--display); font-size: 11rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 .wall-timer-bar { width: 100%; height: 14px; border-radius: 999px; background: var(--sunk); overflow: hidden; }
 .wall-timer-bar span { display: block; height: 100%; background: var(--accent); }
-.wall-timer-choices { width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
-.wall-timer-choice { min-height: 120px; border: 2px solid var(--accent); border-radius: var(--radius); background: var(--accent-soft); color: var(--accent); font-family: var(--display); font-size: 2.6rem; font-weight: 800; cursor: pointer; touch-action: manipulation; }
+.wall-timer-set { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 2rem; align-items: center; }
+.wall-timer-left { display: flex; flex-direction: column; align-items: stretch; gap: 1rem; }
+.wall-timer-entry { font-family: var(--display); font-size: 7.5rem; font-weight: 800; line-height: 1; text-align: center; font-variant-numeric: tabular-nums; }
+.wall-timer-empty { color: var(--muted); opacity: 0.6; }
+.wall-timer-hint { margin: -0.5rem 0 0; text-align: center; color: var(--muted); font-size: 1.15rem; font-weight: 600; }
+.wall-timer-start { justify-content: center; min-height: 88px; font-size: 2.2rem; }
+.wall-timer-start:disabled { opacity: 0.35; cursor: default; }
+.wall-timer-choices { width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
+.wall-timer-choice { min-height: 84px; border: 2px solid var(--accent); border-radius: var(--radius); background: var(--accent-soft); color: var(--accent); font-family: var(--display); font-size: 1.7rem; font-weight: 800; cursor: pointer; touch-action: manipulation; }
+.wall-timer-keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+.wall-timer-key { min-height: 96px; border: 0; border-radius: var(--radius); background: var(--sunk); color: var(--text); font-family: var(--display); font-size: 2.6rem; font-weight: 800; cursor: pointer; touch-action: manipulation; }
+.wall-timer-key:active { opacity: 0.7; }
+.wall-timer-key:disabled { opacity: 0.35; cursor: default; }
+.wall-timer-key-small { font-family: var(--sans); font-size: 1.5rem; }
 .wall-timer-choice:active { opacity: 0.8; }
 .wall-timer-actions { display: flex; gap: 1rem; }
 .wall-timer-actions .wall-flip { background: var(--sunk); color: var(--text); }

@@ -187,8 +187,10 @@ function DisplayBoard() {
   )
 }
 
-/** The kitchen timer's choices, in minutes. */
+/** The kitchen timer's one-tap choices, in minutes. */
 export const TIMER_MINUTES = [1, 2, 5, 10]
+/** Digits typed on the timer's keypad, filling in from the right as on a microwave: 1, 3, 0 is 1:30. */
+const ENTRY_DIGITS = 4
 
 /** Time left as m:ss, rounded up, so it reads 0:00 only once the time is up. */
 export function fmtCountdown(ms: number) {
@@ -196,12 +198,22 @@ export function fmtCountdown(ms: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-/**
- * The clock, which opens a countdown timer when tapped. No sound: when the time is up the panel opens on its own
- * and flashes until someone taps OK. Closing the panel while it runs leaves the countdown under the clock.
- * It ticks on its own, a few times a second and only while running, so the rest of the wall isn't redrawn.
- */
-type TimerRun = { endsAt: number; minutes: number }
+/** Typed digits as shown while typing: the last two are seconds, the rest minutes ("130" → "1:30"). */
+export function fmtEntry(digits: string) {
+  const d = digits.padStart(ENTRY_DIGITS, '0')
+  return `${Number(d.slice(0, -2))}:${d.slice(-2)}`
+}
+
+/** How long the typed digits ask for. Seconds over 59 count on, as on a microwave: "90" is a minute and a half. */
+export function entryMs(digits: string) {
+  const d = digits.padStart(ENTRY_DIGITS, '0')
+  return (Number(d.slice(0, -2)) * 60 + Number(d.slice(-2))) * 1000
+}
+
+/** The longest a timer can be: 99:99 typed, about 100 minutes. */
+const TIMER_MAX_MS = entryMs('9999')
+
+type TimerRun = { endsAt: number; durationMs: number }
 type TimerState = { run?: TimerRun; open: boolean }
 const TIMER_KEY = 'wall-timer'
 /** A finished timer still showing "Time's up" is dropped on reload once it's this old. */
@@ -215,9 +227,9 @@ export function restoreTimer(raw: string | null, nowMs: number): TimerState {
   try {
     const s = JSON.parse(raw ?? '') as TimerState
     const run = s?.run
-    if (!run || !Number.isFinite(run.endsAt) || !TIMER_MINUTES.includes(run.minutes)) return { open: false }
-    if (run.endsAt > nowMs + run.minutes * 60_000 || nowMs - run.endsAt > TIMER_KEEP_DONE_MS) return { open: false }
-    return { run: { endsAt: run.endsAt, minutes: run.minutes }, open: !!s.open }
+    if (!run || !Number.isFinite(run.endsAt) || !(run.durationMs > 0 && run.durationMs <= TIMER_MAX_MS)) return { open: false }
+    if (run.endsAt > nowMs + run.durationMs || nowMs - run.endsAt > TIMER_KEEP_DONE_MS) return { open: false }
+    return { run: { endsAt: run.endsAt, durationMs: run.durationMs }, open: !!s.open }
   } catch {
     return { open: false }
   }
@@ -231,6 +243,11 @@ function loadTimer(): TimerState {
   }
 }
 
+/**
+ * The clock, which opens a countdown timer when tapped. No sound: when the time is up the panel opens on its own
+ * and flashes until someone taps OK. Closing the panel while it runs leaves the countdown under the clock.
+ * It ticks on its own, a few times a second and only while running, so the rest of the wall isn't redrawn.
+ */
 function WallTimer({ time, date }: { time: string; date: string }) {
   const [saved] = useState(loadTimer)
   const [open, setOpen] = useState(saved.open)
@@ -251,9 +268,9 @@ function WallTimer({ time, date }: { time: string; date: string }) {
     return () => clearInterval(t)
   }, [run])
   const done = !!run && nowMs >= run.endsAt
-  const start = (minutes: number) => {
+  const start = (durationMs: number) => {
     setNowMs(Date.now())
-    setRun({ endsAt: Date.now() + minutes * 60_000, minutes })
+    setRun({ endsAt: Date.now() + durationMs, durationMs })
   }
   const stop = () => {
     setRun(undefined)
@@ -283,16 +300,22 @@ export function TimerPanel({
   onStart,
   onCancel,
   onClose,
+  initialDigits = '',
 }: {
-  run?: { endsAt: number; minutes: number }
+  run?: TimerRun
   nowMs: number
-  onStart: (minutes: number) => void
+  onStart: (durationMs: number) => void
   onCancel: () => void
   onClose: () => void
+  initialDigits?: string
 }) {
+  const [digits, setDigits] = useState(initialDigits)
   const left = run ? run.endsAt - nowMs : 0
   const done = !!run && left <= 0
-  const shown = run ? Math.min(left, run.minutes * 60_000) : 0
+  const shown = run ? Math.min(left, run.durationMs) : 0
+  const type = (d: string) => setDigits((cur) => (cur + d).replace(/^0+/, '').slice(0, ENTRY_DIGITS))
+  const typed = entryMs(digits)
+
   return (
     <div className="wall-timer-backdrop" onClick={done ? undefined : onClose}>
       <div
@@ -307,28 +330,50 @@ export function TimerPanel({
             <div className="wall-timer-big" role="alert">Time's up</div>
             <button type="button" className="wall-flip wall-timer-ok" onClick={onCancel}>OK</button>
           </>
-        ) : (
+        ) : run ? (
           <>
-            {run ? (
-              <>
-                <div className="wall-timer-big" role="timer">{fmtCountdown(shown)}</div>
-                <div className="wall-timer-bar"><span style={{ width: `${(100 * shown) / (run.minutes * 60_000)}%` }} /></div>
-              </>
-            ) : (
-              <h2 className="wall-timer-title">Timer</h2>
-            )}
-            <div className="wall-timer-choices">
-              {TIMER_MINUTES.map((m) => (
-                <button key={m} type="button" className="wall-timer-choice" onClick={() => onStart(m)}>
-                  {m} min
-                </button>
-              ))}
-            </div>
+            <div className="wall-timer-big" role="timer">{fmtCountdown(shown)}</div>
+            <div className="wall-timer-bar"><span style={{ width: `${(100 * shown) / run.durationMs}%` }} /></div>
             <div className="wall-timer-actions">
-              {run && <button type="button" className="wall-flip wall-timer-cancel" onClick={onCancel}>Cancel timer</button>}
+              <button type="button" className="wall-flip wall-timer-cancel" onClick={onCancel}>Cancel timer</button>
               <button type="button" className="wall-flip" onClick={onClose}>
                 <Icon name="close" size={28} />
-                {run ? 'Hide' : 'Close'}
+                Hide
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="wall-timer-set">
+              <div className="wall-timer-left">
+                <div className={digits ? 'wall-timer-entry' : 'wall-timer-entry wall-timer-empty'} aria-live="polite">{fmtEntry(digits)}</div>
+                <p className="wall-timer-hint">Type minutes and seconds</p>
+                <button type="button" className="wall-flip wall-timer-start" disabled={!typed} onClick={() => onStart(typed)}>
+                  Start
+                </button>
+                <div className="wall-timer-choices">
+                  {TIMER_MINUTES.map((m) => (
+                    <button key={m} type="button" className="wall-timer-choice" onClick={() => onStart(m * 60_000)}>
+                      {m} min
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="wall-timer-keys">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+                  <button key={d} type="button" className="wall-timer-key" onClick={() => type(d)}>{d}</button>
+                ))}
+                <button type="button" className="wall-timer-key wall-timer-key-small" disabled={!digits} onClick={() => setDigits('')}>Clear</button>
+                <button type="button" className="wall-timer-key" onClick={() => type('0')}>0</button>
+                <button type="button" className="wall-timer-key wall-timer-key-small" disabled={!digits} onClick={() => setDigits((cur) => cur.slice(0, -1))}>
+                  Delete
+                </button>
+              </div>
+            </div>
+            <div className="wall-timer-actions">
+              <button type="button" className="wall-flip" onClick={onClose}>
+                <Icon name="close" size={28} />
+                Close
               </button>
             </div>
           </>
