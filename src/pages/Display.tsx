@@ -403,14 +403,16 @@ export function ShoppingPanel() {
       ) : items.length === 0 ? (
         <p className="wall-muted">Nothing to buy.</p>
       ) : (
-        <ul className="wall-shop">
-          {items.map((i) => (
-            <li key={i.id}>
-              {i.name}
-              {i.note && <span className="wall-muted"> · {i.note}</span>}
-            </li>
-          ))}
-        </ul>
+        <div className="wall-shop-scroll">
+          <ul className="wall-shop">
+            {items.map((i) => (
+              <li key={i.id}>
+                {i.name}
+                {i.note && <span className="wall-muted"> · {i.note}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </section>
   )

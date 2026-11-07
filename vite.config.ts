@@ -114,5 +114,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
+    // Let tests read the stylesheet (Display.test checks the wall's column rules); Vitest blanks CSS otherwise.
+    css: { include: [/styles\.css/] },
   },
 })

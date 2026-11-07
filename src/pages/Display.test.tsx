@@ -1,3 +1,4 @@
+import css from '../styles.css?raw'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { Shopping, Task } from '../api/types'
@@ -43,5 +44,24 @@ describe('wall Today card: to-dos and shopping always show', () => {
     const html = renderToStaticMarkup(<ShoppingPanel />)
     expect(html).toContain('Shopping')
     expect(html).toContain('No shopping list yet.')
+  })
+})
+
+describe('wall columns stay a fixed third each', () => {
+  // A long shopping list used to overflow sideways (CSS columns in a fixed-height box), and the
+  // fr tracks' auto minimum let it widen the first column and squeeze the other two.
+  const rule = (selector: string) => css.match(new RegExp(`^\\${selector} \\{([^}]*)\\}`, 'm'))?.[1] ?? ''
+
+  it('the three columns are equal and cannot grow with their content', () => {
+    expect(rule('.wall-body')).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))')
+  })
+
+  it('the shopping list scrolls down instead of adding columns sideways', () => {
+    expect(rule('.wall-shop-scroll')).toContain('overflow-y: auto')
+    expect(rule('.wall-shop')).not.toMatch(/flex: 1|overflow: hidden/)
+    shopping.current = { data: { id: 'l', name: 'Groceries', items: Array.from({ length: 40 }, (_, n) => ({ id: `i${n}`, name: `Item ${n}` })) } as Shopping, isSuccess: true }
+    const html = renderToStaticMarkup(<ShoppingPanel />)
+    expect(html).toContain('<div class="wall-shop-scroll"><ul class="wall-shop">')
+    expect(html).toContain('Item 39')
   })
 })
