@@ -43,7 +43,7 @@ export const patchTask: Handler = async ({ store, caller }, params, _q, body) =>
 }
 
 /**
- * Marks a to-do done or not done and changes nothing else. The wall display's only write (S34),
+ * Marks a to-do done or not done and changes nothing else. One of the wall display's two writes (S34),
  * so a copied display key can tick to-dos but not edit, add or delete them.
  * completedBy is the caller: `display:<device id>` for a paired frame.
  */

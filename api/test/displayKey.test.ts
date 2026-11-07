@@ -5,7 +5,7 @@ import { MemoryStore } from '../src/lib/memoryStore'
 import { seed } from '../src/lib/seed'
 import { setStore } from '../src/lib/store'
 import type { Ctx } from '../src/lib/http'
-import type { Caller, DisplayDevice, Task } from '../src/lib/types'
+import type { Caller, DisplayDevice, Item, Task } from '../src/lib/types'
 
 /**
  * S34: the wall display's own key, so the frame needs no Microsoft sign-in.
@@ -23,10 +23,11 @@ const { route } = await import('../src/lib/http')
 
 process.env.FAMILY_ID = 'home'
 
-/** The one route the key can write through: ticking a to-do (S34). */
+/** The two routes the key can write through: ticking a to-do, and ticking a list item (S34). */
 const DISPLAY_WRITE = 'display-tasks-done'
+const DISPLAY_ITEM_WRITE = 'display-items-checked'
 /** The same list as display.test.ts: what the wall page reads. */
-const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'recipes-get']
+const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'shopping-lists-get', 'recipes-get']
 const quiet = { log() {}, warn() {}, error() {} }
 const sha = (s: string) => createHash('sha256').update(s).digest('hex')
 const principal = (userId: string, email: string) =>
@@ -167,7 +168,7 @@ describe('display key: pairing', () => {
 
 describe('display key: what it opens', () => {
   it('there is a GET alias under display/ for exactly what the wall page reads', () => {
-    const aliases = registered.filter((r) => r.route.startsWith('display/') && !['display-pair', DISPLAY_WRITE].includes(r.name) && !r.name.startsWith('display-devices'))
+    const aliases = registered.filter((r) => r.route.startsWith('display/') && !['display-pair', DISPLAY_WRITE, DISPLAY_ITEM_WRITE].includes(r.name) && !r.name.startsWith('display-devices'))
     expect(aliases.map((r) => r.name).sort()).toEqual(DISPLAY_CAN_READ.map(aliasFor).sort())
     for (const r of aliases) expect(r.methods).toEqual(['GET'])
   })
@@ -222,14 +223,17 @@ describe('display key: what it opens', () => {
   })
 })
 
-describe('display key: ticking a to-do, its only write', () => {
+describe('display key: ticking a to-do, one of its two writes', () => {
   const tick = (key: string, id: string, body: unknown, contentType?: string | null) =>
     request(byName(DISPLAY_WRITE), { cookie: cookieFor(key), params: { id }, body, contentType })
   const task = (id: string) => store.get<Task>('home', id, 'task')
 
-  it('is the only display/ route that is not a GET', () => {
+  it('it and ticking a list item are the only display/ routes that are not a GET', () => {
     const writes = registered.filter((r) => r.route.startsWith('display/') && r.methods[0] !== 'GET' && r.name !== 'display-pair' && !r.name.startsWith('display-devices'))
-    expect(writes.map((r) => [r.name, r.methods, r.route])).toEqual([[DISPLAY_WRITE, ['POST'], 'display/tasks/{id}/done']])
+    expect(writes.map((r) => [r.name, r.methods, r.route]).sort()).toEqual([
+      [DISPLAY_ITEM_WRITE, ['POST'], 'display/items/{id}/checked'],
+      [DISPLAY_WRITE, ['POST'], 'display/tasks/{id}/done'],
+    ])
   })
 
   it('the key ticks a to-do and unticks it, recorded as the display', async () => {
@@ -291,10 +295,10 @@ describe('display key: ticking a to-do, its only write', () => {
     expect((await task('t-1'))!.done).toBe(false)
   })
 
-  it('the key still cannot add, edit or delete to-dos, or tick shopping', async () => {
+  it('the key still cannot add, edit or delete to-dos or list items', async () => {
     const { key } = await newKey()
     const before = JSON.stringify(await store.byType('home', 'task'))
-    for (const name of ['tasks-create', 'tasks-patch', 'tasks-delete', 'items-patch']) {
+    for (const name of ['tasks-create', 'tasks-patch', 'tasks-delete', 'items-add', 'items-patch', 'items-delete', 'items-clear']) {
       expect((await request(byName(name), { cookie: cookieFor(key), params: { id: 't-1' }, body: { done: true } })).status, name).toBe(401)
     }
     expect(JSON.stringify(await store.byType('home', 'task'))).toBe(before)
@@ -312,6 +316,84 @@ describe('display key: ticking a to-do, its only write', () => {
     expect(() => route('w2', 'POST', 'x', { display: true, displayKey: true, displayWrite: true }, noop)).toThrow(/POST/)
     expect(() => route('w3', 'POST', 'display/x', { display: true, displayKey: true }, noop)).toThrow(/only read/)
     expect(() => route('w4', 'POST', 'x', { display: true }, noop)).toThrow(/only read/)
+  })
+})
+
+describe('display key: ticking a list item, its other write', () => {
+  const tick = (key: string, id: string, body: unknown, contentType?: string | null) =>
+    request(byName(DISPLAY_ITEM_WRITE), { cookie: cookieFor(key), params: { id }, body, contentType })
+  const item = (id: string) => store.get<Item>('home', id, 'item')
+
+  it('the key ticks an item and unticks it, recorded as the display', async () => {
+    const { id: deviceId, key } = await newKey()
+    const before = (await item('i-1'))!
+    expect(before.checked).toBe(false)
+
+    expect((await tick(key, 'i-1', { checked: true })).status).toBe(200)
+    const done = (await item('i-1'))!
+    expect(done).toMatchObject({ checked: true, checkedBy: `display:${deviceId}`, updatedBy: `display:${deviceId}` })
+    expect(done.checkedAt).toBeTruthy()
+    // Nothing else about the item changes.
+    expect({ ...done, checked: false, checkedAt: before.checkedAt, checkedBy: before.checkedBy, updatedAt: before.updatedAt, updatedBy: before.updatedBy }).toEqual(before)
+
+    expect((await tick(key, 'i-1', { checked: false })).status).toBe(200)
+    expect(await item('i-1')).toMatchObject({ checked: false })
+    expect((await item('i-1'))!.checkedBy).toBeUndefined()
+  })
+
+  it('ticks an item on any list, not only the default', async () => {
+    const { key } = await newKey()
+    expect((await tick(key, 'i-7', { checked: true })).status).toBe(200)
+    expect((await item('i-7'))!.checked).toBe(true)
+  })
+
+  it('ignores anything in the body but checked, so it cannot edit or move an item', async () => {
+    const { key } = await newKey()
+    const before = (await item('i-1'))!
+    await tick(key, 'i-1', { checked: true, name: 'Hacked', note: 'x', listId: 'l-hardware', category: 'Other', familyId: 'other' })
+    expect(await item('i-1')).toMatchObject({ name: before.name, note: before.note, listId: before.listId, category: before.category, familyId: 'home', checked: true })
+  })
+
+  it('rejects a body without a boolean checked', async () => {
+    const { key } = await newKey()
+    for (const body of [{}, { checked: 'yes' }, { checked: 1 }, { done: true }]) expect((await tick(key, 'i-1', body)).status).toBe(400)
+    expect((await item('i-1'))!.checked).toBe(false)
+  })
+
+  it('refuses a body not sent as JSON, so a form on another site cannot tick', async () => {
+    const { key } = await newKey()
+    for (const type of [null, 'text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data']) {
+      expect((await tick(key, 'i-1', { checked: true }, type)).status, String(type)).toBe(415)
+    }
+    expect((await item('i-1'))!.checked).toBe(false)
+  })
+
+  it('an unknown item is a 404, and a to-do id is not an item', async () => {
+    const { key } = await newKey()
+    expect((await tick(key, 'nope', { checked: true })).status).toBe(404)
+    expect((await tick(key, 't-1', { checked: true })).status).toBe(404)
+  })
+
+  it('needs a key: none, a wrong one or a revoked one is NOT_PAIRED and changes nothing', async () => {
+    const { id, key } = await newKey()
+    expect((await request(byName(DISPLAY_ITEM_WRITE), { params: { id: 'i-1' }, body: { checked: true } })).jsonBody?.code).toBe('NOT_PAIRED')
+    expect((await tick('C'.repeat(43), 'i-1', { checked: true })).jsonBody?.code).toBe('NOT_PAIRED')
+    await revokeDisplayDevice(ctx, { id }, new URLSearchParams(), undefined)
+    expect((await tick(key, 'i-1', { checked: true })).jsonBody?.code).toBe('NOT_PAIRED')
+    expect((await item('i-1'))!.checked).toBe(false)
+  })
+})
+
+describe('display key: reading every list for the Lists page', () => {
+  it('returns open lists, default first, with unchecked items only and nothing else about them', async () => {
+    const { key } = await newKey()
+    const res = await request(byName('display-shopping-lists-get'), { cookie: cookieFor(key) })
+    expect(res.status).toBe(200)
+    const lists = res.jsonBody as unknown as { id: string; name: string; isDefault: boolean; items: Record<string, unknown>[] }[]
+    expect(lists.map((l) => [l.id, l.isDefault])).toEqual([['l-groceries', true], ['l-hardware', false]])
+    expect(lists[0].items.map((i) => i.name)).not.toContain('Eggs')
+    expect(lists[1].items).toEqual([{ id: 'i-7', name: 'Light bulbs', note: 'E27 warm white' }])
+    expect(Object.keys(lists[0])).toEqual(['id', 'name', 'isDefault', 'items'])
   })
 })
 

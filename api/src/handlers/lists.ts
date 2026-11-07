@@ -1,6 +1,6 @@
 import { notFound } from '../lib/errors'
 import type { Handler } from '../lib/http'
-import { itemPatchSchema, itemSchema, listSchema, parse } from '../lib/schemas'
+import { itemCheckedSchema, itemPatchSchema, itemSchema, listSchema, parse } from '../lib/schemas'
 import { CATEGORIES, type Item, type List, type Settings } from '../lib/types'
 import { nowIso, stamp, touch } from '../lib/util'
 
@@ -81,23 +81,54 @@ export const clearChecked: Handler = async ({ store, caller }, params, query) =>
   return { body: { removed } }
 }
 
-/**
- * The wall's shopping panel: the default list (else the first), with its unchecked items only,
- * by category then when they were added. Just what the panel shows, so the display reads no other list.
- */
-export const getShopping: Handler = async ({ store, caller }) => {
+/** Open lists in their order, and a list's unchecked items as the wall shows them: by category, then when added. */
+async function wallData({ store, caller }: Parameters<Handler>[0]) {
   const [lists, items, settings] = await Promise.all([
     store.byType<List>(caller.familyId, 'list'),
     store.byType<Item>(caller.familyId, 'item'),
     store.get<Settings>(caller.familyId, 'settings', 'settings'),
   ])
   const open = lists.filter((l) => !l.archived).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
-  const list = open.find((l) => l.id === settings?.defaultListId) ?? open[0]
-  if (!list) return { body: null }
   const rank = (c?: string) => (c ? CATEGORIES.indexOf(c as (typeof CATEGORIES)[number]) : CATEGORIES.length)
-  const mine = items
-    .filter((i) => i.listId === list.id && !i.checked)
-    .sort((a, b) => rank(a.category) - rank(b.category) || a.createdAt.localeCompare(b.createdAt))
-    .map((i) => ({ id: i.id, name: i.name, note: i.note, category: i.category }))
-  return { body: { id: list.id, name: list.name, items: mine } }
+  const unchecked = (list: List) =>
+    items
+      .filter((i) => i.listId === list.id && !i.checked)
+      .sort((a, b) => rank(a.category) - rank(b.category) || a.createdAt.localeCompare(b.createdAt))
+      .map((i) => ({ id: i.id, name: i.name, note: i.note, category: i.category }))
+  const defaultList = open.find((l) => l.id === settings?.defaultListId) ?? open[0]
+  return { open, unchecked, defaultList }
+}
+
+/**
+ * The wall's shopping panel: the default list (else the first), with its unchecked items only,
+ * by category then when they were added. Just what the panel shows.
+ */
+export const getShopping: Handler = async (ctx) => {
+  const { unchecked, defaultList: list } = await wallData(ctx)
+  if (!list) return { body: null }
+  return { body: { id: list.id, name: list.name, items: unchecked(list) } }
+}
+
+/**
+ * The wall's Lists page: every open list with its unchecked items, the default first.
+ * Names and items only: no checked items, recent names or who added what.
+ */
+export const getWallLists: Handler = async (ctx) => {
+  const { open, unchecked, defaultList } = await wallData(ctx)
+  const ordered = defaultList ? [defaultList, ...open.filter((l) => l !== defaultList)] : open
+  return { body: ordered.map((l) => ({ id: l.id, name: l.name, isDefault: l === defaultList, items: unchecked(l) })) }
+}
+
+/**
+ * Ticks a list item or unticks it and changes nothing else. One of the wall display's two writes (S34),
+ * so a copied display key can tick items but not add, edit or delete them.
+ * checkedBy is the caller: `display:<device id>` for a paired frame.
+ */
+export const setItemChecked: Handler = async ({ store, caller }, params, _q, body) => {
+  const { checked } = parse(itemCheckedSchema, body)
+  const item = await store.get<Item>(caller.familyId, params.id, 'item')
+  if (!item) throw notFound('Item not found')
+  if (checked === item.checked) return { body: item }
+  const saved = await store.upsert(touch(caller, item, { checked, checkedAt: checked ? nowIso() : undefined, checkedBy: checked ? caller.memberId : undefined }))
+  return { body: saved }
 }

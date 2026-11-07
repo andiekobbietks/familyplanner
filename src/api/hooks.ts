@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { ChatMessage, Chore, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, Weather } from './types'
+import type { ChatMessage, Chore, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, WallList, Weather } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
 export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => api<Settings>('/settings'), staleTime: 60_000 })
 export const useShopping = () => useQuery({ queryKey: ['shopping'], queryFn: () => api<Shopping | null>('/shopping') })
+/** The wall's Lists page: every open list with its unchecked items, the default first. */
+export const useWallLists = () => useQuery({ queryKey: ['wall-lists'], queryFn: () => api<WallList[]>('/shopping/lists') })
 export const useLists = () => useQuery({ queryKey: ['lists'], queryFn: () => api<List[]>('/lists') })
 
 export const useItems = (listId: string | undefined, poll = false) =>
@@ -64,8 +66,9 @@ export const mutations = {
   createTask: (body: Partial<Task>) => api<Task>('/tasks', { method: 'POST', json: body }),
   patchTask: (id: string, body: Partial<Task>) => api<Task>(`/tasks/${id}`, { method: 'PATCH', json: body }),
   deleteTask: (id: string) => api<void>(`/tasks/${id}`, { method: 'DELETE' }),
-  /** Wall page only: the display key's one write, under /api/display (S34). */
+  /** Wall page only: the display key's two writes, under /api/display (S34). */
   wallSetTaskDone: (id: string, done: boolean) => api<Task>(`/tasks/${id}/done`, { method: 'POST', json: { done } }),
+  wallSetItemChecked: (id: string, checked: boolean) => api<Item>(`/items/${id}/checked`, { method: 'POST', json: { checked } }),
 
   setCell: (date: string, slot: string, body: { text: string }) =>
     api<PlanEntry>(`/plan/${date}/${slot}`, { method: 'PUT', json: body }),

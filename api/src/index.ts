@@ -33,6 +33,7 @@ view('external-events-list', 'external-events', events.listExternalEvents)
 
 route('lists-get', 'GET', 'lists', ANY, lists.getLists)
 view('shopping-get', 'shopping', lists.getShopping)
+view('shopping-lists-get', 'shopping/lists', lists.getWallLists)
 route('lists-create', 'POST', 'lists', ADMIN, lists.createList)
 route('lists-delete', 'DELETE', 'lists/{id}', ADMIN, lists.deleteList)
 route('items-get', 'GET', 'lists/{id}/items', ANY, lists.getItems)
@@ -45,7 +46,8 @@ view('tasks-get', 'tasks', tasks.getTasks)
 route('tasks-create', 'POST', 'tasks', ANY, tasks.createTask)
 route('tasks-patch', 'PATCH', 'tasks/{id}', ANY, tasks.patchTask)
 route('tasks-delete', 'DELETE', 'tasks/{id}', ANY, tasks.deleteTask)
-// The wall display's one write: tick a to-do or untick it (S34). Nothing else about a task.
+// The wall display's two writes (S34): tick or untick a to-do, or a list item. Nothing else about either.
+route('display-items-checked', 'POST', 'display/items/{id}/checked', { display: true, displayKey: true, displayWrite: true }, lists.setItemChecked)
 route('display-tasks-done', 'POST', 'display/tasks/{id}/done', { display: true, displayKey: true, displayWrite: true }, tasks.setTaskDone)
 
 view('plan-get', 'plan', plan.getPlan)

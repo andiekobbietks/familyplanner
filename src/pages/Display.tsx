@@ -1,26 +1,27 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '../api/client'
-import { mutations, useCalendarEvents, useChores, usePlan, useRecipes, useSettings, useShopping, useTasks, useWeather } from '../api/hooks'
-import type { Me, Occurrence, PlanEntry, Slot, Task, Weather } from '../api/types'
+import { mutations, useCalendarEvents, useChores, usePlan, useRecipes, useSettings, useShopping, useTasks, useWallLists, useWeather } from '../api/hooks'
+import type { Me, Occurrence, PlanEntry, Slot, Task, WallList, Weather } from '../api/types'
 import { Icon, type IconName } from '../components/Icons'
 import { Avatar, usePersonMap } from '../components/People'
 import { addDays, fmtDayLong, fmtMonth, fmtTime, fmtWeekday, mondayOf, monthGrid, relativeDay, todayISO } from '../lib/dates'
 import { eventsByDay } from '../lib/events'
 import { findRecipe, matchesSearch } from '../lib/recipes'
-import { wallTodos } from '../lib/tasks'
+import { openTodos, wallTodos } from '../lib/tasks'
 import { RecipeText } from '../components/RecipeText'
 import { degrees, describeWeather } from '../lib/weather'
 
 /** How often the wall page refetches its data. */
 const REFRESH_MS = 60_000
-/** Month is a glance: after this long without a touch the frame goes back to Today on its own. Meals stays until another view is chosen. */
+/** Month and Lists are a glance: after this long without a touch the frame goes back to Today on its own. Meals stays until another view is chosen. */
 const AWAY_FOR_MS = 5 * 60_000
 /** A recipe is followed while cooking, so it stays up for this long after the last touch. */
 const RECIPE_FOR_MS = 30 * 60_000
-type View = 'today' | 'meals' | 'month' | 'recipes'
+type View = 'today' | 'lists' | 'meals' | 'month' | 'recipes'
 const VIEWS: { id: View; label: string; icon: IconName }[] = [
   { id: 'today', label: 'Today', icon: 'home' },
+  { id: 'lists', label: 'Lists', icon: 'basket' },
   { id: 'meals', label: 'Meals', icon: 'meals' },
   { id: 'month', label: 'Month', icon: 'calendar' },
   { id: 'recipes', label: 'Recipes', icon: 'book' },
@@ -29,7 +30,7 @@ const VIEWS: { id: View; label: string; icon: IconName }[] = [
 const MONTH_CELL_EVENTS: Record<number, number> = { 4: 4, 5: 3, 6: 2 }
 /** To-dos on the Today card before the rest collapse to "+N more", so the shopping list keeps its room. */
 const TODOS_SHOWN = 6
-/** How long Undo stays up after a to-do is ticked on the wall. */
+/** How long Undo stays up after a to-do or list item is ticked on the wall. */
 const UNDO_FOR_MS = 8_000
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
 
@@ -119,6 +120,10 @@ function DisplayBoard() {
   const plan = [...(thisWeek.data ?? []), ...(mondayOf(lastDay) === mondayOf(today) ? [] : (nextWeek.data ?? []))]
   const byDay = useMemo(() => eventsByDay(events, today, lastDay), [events, today, lastDay])
   const todos = wallTodos(tasks, today)
+  const setTodoDone = async (id: string, done: boolean) => {
+    await mutations.wallSetTaskDone(id, done)
+    await qc.invalidateQueries({ queryKey: ['tasks'] })
+  }
   const showCalendar = calendars.length > 1
 
   return (
@@ -148,7 +153,9 @@ function DisplayBoard() {
         </nav>
       </header>
 
-      {view === 'month' ? (
+      {view === 'lists' ? (
+        <ListsView todos={openTodos(tasks, today)} today={today} onTodoDone={setTodoDone} />
+      ) : view === 'month' ? (
         <MonthView today={today} nowMs={now.getTime()} />
       ) : view === 'meals' ? (
         <MealsView today={today} plan={plan} slots={slots} weather={weather} onRecipe={openRecipe} />
@@ -162,16 +169,9 @@ function DisplayBoard() {
             {unavailable && <p className="wall-note">Google calendar unavailable</p>}
             <Agenda events={byDay.get(today) ?? []} showCalendar={showCalendar} nowMs={now.getTime()} />
             <Meals plan={plan.filter((p) => p.date === today)} slots={slots} />
-            <TodoList
-              todos={todos}
-              today={today}
-              onDone={async (id, done) => {
-                await mutations.wallSetTaskDone(id, done)
-                await qc.invalidateQueries({ queryKey: ['tasks'] })
-              }}
-            />
+            <TodoList todos={todos} today={today} onDone={setTodoDone} onMore={() => setView('lists')} />
           </section>
-          <ShoppingPanel />
+          <ShoppingPanel onOpen={() => setView('lists')} />
         </div>
 
         <section className="wall-card wall-week" aria-labelledby="wall-week-h">
@@ -297,14 +297,12 @@ function Chores({ week }: { week: string }) {
 }
 
 /**
- * The Today card's to-dos. Always shown, so an empty list reads as done rather than missing.
- * With `onDone`, each has a tick button, the wall's only write (S34): a ticked to-do goes at once
- * and Undo stays up for a few seconds in case of a stray touch.
+ * Tick-with-Undo for the wall's two writes (S34): a ticked row goes at once and Undo stays up
+ * for a few seconds in case of a stray touch. A failed save puts the row back and says so.
  */
-export function TodoList({ todos, today, onDone }: { todos: Task[]; today: string; onDone?: (id: string, done: boolean) => Promise<unknown> }) {
-  const people = usePersonMap()
+function useTicks<T extends { id: string }>(rows: T[], onSet?: (id: string, on: boolean) => Promise<unknown>) {
   const [hidden, setHidden] = useState<string[]>([])
-  const [undo, setUndo] = useState<Task>()
+  const [undo, setUndo] = useState<T>()
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
@@ -312,69 +310,47 @@ export function TodoList({ todos, today, onDone }: { todos: Task[]; today: strin
     const t = setTimeout(() => setUndo(undefined), UNDO_FOR_MS)
     return () => clearTimeout(t)
   }, [undo])
-  // Once a refetch drops a ticked to-do, stop hiding it, so one unticked elsewhere comes back.
+  // Once a refetch drops a ticked row, stop hiding it, so one unticked elsewhere comes back.
   useEffect(() => {
-    setHidden((h) => (h.some((id) => !todos.some((t) => t.id === id)) ? h.filter((id) => todos.some((t) => t.id === id)) : h))
-  }, [todos])
+    setHidden((h) => (h.some((id) => !rows.some((r) => r.id === id)) ? h.filter((id) => rows.some((r) => r.id === id)) : h))
+  }, [rows])
 
-  async function tick(t: Task) {
-    if (!onDone) return
+  async function tick(r: T) {
+    if (!onSet) return
     setFailed(false)
-    setHidden((h) => [...h, t.id])
-    setUndo(t)
+    setHidden((h) => [...h, r.id])
+    setUndo(r)
     try {
-      await onDone(t.id, true)
+      await onSet(r.id, true)
     } catch {
-      setHidden((h) => h.filter((id) => id !== t.id))
+      setHidden((h) => h.filter((id) => id !== r.id))
       setUndo(undefined)
       setFailed(true)
     }
   }
 
-  async function untick(t: Task) {
-    if (!onDone) return
+  async function untick(r: T) {
+    if (!onSet) return
     setFailed(false)
     setUndo(undefined)
     try {
-      await onDone(t.id, false)
-      setHidden((h) => h.filter((id) => id !== t.id))
+      await onSet(r.id, false)
+      setHidden((h) => h.filter((id) => id !== r.id))
     } catch {
       setFailed(true)
     }
   }
 
-  const shown = todos.filter((t) => !hidden.includes(t.id))
+  return { shown: rows.filter((r) => !hidden.includes(r.id)), undo, failed, tick, untick }
+}
+
+function TickNotes({ undoLabel, onUndo, failed }: { undoLabel?: string; onUndo: () => void; failed: boolean }) {
   return (
     <>
-      <h3>To do</h3>
-      {shown.length === 0 ? (
-        <p className="wall-muted">Nothing to do.</p>
-      ) : (
-        <>
-          <ul className="wall-list">
-            {shown.slice(0, TODOS_SHOWN).map((t) => {
-              const who = people.get(t.assignee ?? '')
-              return (
-                <li key={t.id}>
-                  {onDone && (
-                    <button type="button" className="wall-tick" aria-label={`Done: ${t.title}`} onClick={() => void tick(t)}>
-                      <Icon name="check" size={26} />
-                    </button>
-                  )}
-                  <span className="wall-grow">{t.title}</span>
-                  {t.dueDate && t.dueDate !== today && <span className={t.dueDate < today ? 'wall-overdue' : 'wall-due'}>{relativeDay(t.dueDate)}</span>}
-                  {who && <Avatar person={who} size={26} />}
-                </li>
-              )
-            })}
-          </ul>
-          {shown.length > TODOS_SHOWN && <p className="wall-muted wall-more-todos">+{shown.length - TODOS_SHOWN} more</p>}
-        </>
-      )}
-      {undo && (
+      {undoLabel && (
         <p className="wall-undo" role="status">
-          <span className="wall-grow">Done: {undo.title}</span>
-          <button type="button" onClick={() => void untick(undo)}>
+          <span className="wall-grow">{undoLabel}</span>
+          <button type="button" onClick={onUndo}>
             Undo
           </button>
         </p>
@@ -388,16 +364,98 @@ export function TodoList({ todos, today, onDone }: { todos: Task[]; today: strin
   )
 }
 
-/** The default shopping list's unchecked items, under Today, so the wall shows what to pick up. Always shown, even when empty. */
-export function ShoppingPanel() {
+function TickButton({ label, onTick }: { label: string; onTick: () => void }) {
+  return (
+    <button type="button" className="wall-tick" aria-label={label} onClick={onTick}>
+      <Icon name="check" size={26} />
+    </button>
+  )
+}
+
+/**
+ * The to-dos, on the Today card (the first few, and "+N more" by the heading, which opens Lists) and on the Lists page (all of them).
+ * Always shown, so an empty list reads as done rather than missing. With `onDone`, each has a tick button.
+ * With `scroll`, the rows scroll and Undo stays in view below them.
+ */
+export function TodoList({
+  todos,
+  today,
+  onDone,
+  onMore,
+  limit = TODOS_SHOWN,
+  heading = true,
+  scroll = false,
+}: {
+  todos: Task[]
+  today: string
+  onDone?: (id: string, done: boolean) => Promise<unknown>
+  onMore?: () => void
+  limit?: number
+  heading?: boolean
+  scroll?: boolean
+}) {
+  const people = usePersonMap()
+  const { shown, undo, failed, tick, untick } = useTicks(todos, onDone)
+  const more = shown.length - limit
+
+  const rows =
+    shown.length === 0 ? (
+      <p className="wall-muted">Nothing to do.</p>
+    ) : (
+      <>
+        <ul className="wall-list">
+          {shown.slice(0, limit).map((t) => {
+            const who = people.get(t.assignee ?? '')
+            return (
+              <li key={t.id}>
+                {onDone && <TickButton label={`Done: ${t.title}`} onTick={() => void tick(t)} />}
+                <span className="wall-grow">{t.title}</span>
+                {t.dueDate && t.dueDate !== today && <span className={t.dueDate < today ? 'wall-overdue' : 'wall-due'}>{relativeDay(t.dueDate)}</span>}
+                {who && <Avatar person={who} size={26} />}
+              </li>
+            )
+          })}
+        </ul>
+        {more > 0 && !onMore && <p className="wall-muted wall-more-todos">+{more} more</p>}
+      </>
+    )
+  return (
+    <>
+      {/* "+N more" sits by the heading, so a busy Today card can't push it out of sight. */}
+      {heading &&
+        (more > 0 && onMore ? (
+          <div className="wall-card-head wall-todo-head">
+            <h3>To do</h3>
+            <button type="button" className="wall-more" onClick={onMore}>
+              +{more} more
+            </button>
+          </div>
+        ) : (
+          <h3>To do</h3>
+        ))}
+      {scroll ? <div className="wall-scroll">{rows}</div> : rows}
+      <TickNotes undoLabel={undo && `Done: ${undo.title}`} onUndo={() => undo && void untick(undo)} failed={failed} />
+    </>
+  )
+}
+
+/** The default shopping list's unchecked items, under Today, so the wall shows what to pick up. Always shown, even when empty. With `onOpen`, a button opens the Lists page. */
+export function ShoppingPanel({ onOpen }: { onOpen?: () => void } = {}) {
   const { data, isSuccess } = useShopping()
   const items = data?.items ?? []
   return (
     <section className="wall-card wall-shopping" aria-labelledby="wall-shopping-h">
-      <h2 id="wall-shopping-h">
-        {data?.name ?? 'Shopping'}
-        {items.length > 0 && <span className="wall-count">{items.length}</span>}
-      </h2>
+      <div className="wall-card-head">
+        <h2 id="wall-shopping-h">
+          {data?.name ?? 'Shopping'}
+          {items.length > 0 && <span className="wall-count">{items.length}</span>}
+        </h2>
+        {onOpen && (
+          <button type="button" className="wall-more" onClick={onOpen}>
+            All lists
+          </button>
+        )}
+      </div>
       {isSuccess && !data ? (
         <p className="wall-muted">No shopping list yet.</p>
       ) : items.length === 0 ? (
@@ -415,6 +473,76 @@ export function ShoppingPanel() {
         </div>
       )}
     </section>
+  )
+}
+
+/** A list's unchecked items on the Lists page, each with a tick button and Undo, scrolling when long. */
+export function ItemList({ items, onChecked }: { items: WallList['items']; onChecked?: (id: string, checked: boolean) => Promise<unknown> }) {
+  const { shown, undo, failed, tick, untick } = useTicks(items, onChecked)
+  return (
+    <>
+      <div className="wall-scroll">
+        {shown.length === 0 ? (
+          <p className="wall-muted">Nothing to buy.</p>
+        ) : (
+          <ul className="wall-list">
+            {shown.map((i) => (
+              <li key={i.id}>
+                {onChecked && <TickButton label={`Got: ${i.name}`} onTick={() => void tick(i)} />}
+                <span className="wall-grow">
+                  {i.name}
+                  {i.note && <span className="wall-muted"> · {i.note}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <TickNotes undoLabel={undo && `Got: ${undo.name}`} onUndo={() => undo && void untick(undo)} failed={failed} />
+    </>
+  )
+}
+
+/**
+ * Every open to-do and list in full, each side scrolling. The default shopping list shows first,
+ * and when there are others, buttons above switch between them. Opened from the Lists button,
+ * "+N more" on the Today card or "All lists" on the shopping card.
+ */
+function ListsView({ todos, today, onTodoDone }: { todos: Task[]; today: string; onTodoDone: (id: string, done: boolean) => Promise<unknown> }) {
+  const qc = useQueryClient()
+  const { data: lists, isSuccess } = useWallLists()
+  const [chosenId, setChosenId] = useState<string>()
+  const list = lists?.find((l) => l.id === chosenId) ?? lists?.[0]
+  const setChecked = async (id: string, checked: boolean) => {
+    await mutations.wallSetItemChecked(id, checked)
+    await Promise.all([qc.invalidateQueries({ queryKey: ['wall-lists'] }), qc.invalidateQueries({ queryKey: ['shopping'] })])
+  }
+  return (
+    <main className="wall-lists">
+      <section className="wall-card" aria-labelledby="wall-lists-todo-h">
+        <h2 id="wall-lists-todo-h">
+          To do
+          {todos.length > 0 && <span className="wall-count">{todos.length}</span>}
+        </h2>
+        <TodoList todos={todos} today={today} onDone={onTodoDone} limit={Infinity} heading={false} scroll />
+      </section>
+      <section className="wall-card" aria-labelledby="wall-lists-shop-h">
+        <h2 id="wall-lists-shop-h">
+          {list?.name ?? 'Shopping'}
+          {list && list.items.length > 0 && <span className="wall-count">{list.items.length}</span>}
+        </h2>
+        {lists && lists.length > 1 && (
+          <div className="wall-tags" role="group" aria-label="Lists">
+            {lists.map((l) => (
+              <button key={l.id} type="button" className="wall-tag" aria-pressed={l.id === list?.id} onClick={() => setChosenId(l.id)}>
+                {l.name} · {l.items.length}
+              </button>
+            ))}
+          </div>
+        )}
+        {list ? <ItemList key={list.id} items={list.items} onChecked={setChecked} /> : isSuccess && <p className="wall-muted">No shopping list yet.</p>}
+      </section>
+    </main>
   )
 }
 

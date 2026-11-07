@@ -71,6 +71,13 @@ export interface Shopping {
   name: string
   items: { id: string; name: string; note?: string; category?: Category }[]
 }
+/** The wall's Lists page: an open list and its unchecked items. */
+export interface WallList {
+  id: string
+  name: string
+  isDefault: boolean
+  items: Shopping['items']
+}
 export interface Item {
   id: string
   listId: string

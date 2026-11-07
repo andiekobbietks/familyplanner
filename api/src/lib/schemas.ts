@@ -29,8 +29,10 @@ export const taskSchema = z.object({
   notes: long.optional(),
 })
 export const taskPatchSchema = taskSchema.partial().extend({ done: z.boolean().optional() })
-/** The wall display's only write (S34): done or not done, nothing else. */
+/** A wall display write (S34): a to-do done or not done, nothing else. */
 export const taskDoneSchema = z.object({ done: z.boolean() })
+/** A wall display write (S34): a list item ticked or not, nothing else. */
+export const itemCheckedSchema = z.object({ checked: z.boolean() })
 
 export const planCellSchema = z.object({ text: title })
 
