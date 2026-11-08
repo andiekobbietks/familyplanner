@@ -510,8 +510,9 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 .wall-more:active { background: var(--line); }
 .wall-card-head { display: flex; align-items: center; gap: 0.75rem; margin: -0.4rem 0 0.4rem; }
 .wall-card-head h2, .wall-card-head h3 { flex: 1; margin: 0; }
-.wall-todo-head { margin: 1rem 0 0; }
-.wall-todo-head .wall-more { min-height: 40px; font-size: 0.95rem; }
+/* To do keeps its height (it shows a fixed number); Chores takes what's left and scrolls if the family has many. */
+.wall-todo { flex: 0 0 auto; display: flex; flex-direction: column; }
+.wall-chores { flex: 0 1 auto; display: flex; flex-direction: column; }
 .wall-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
 .wall-lists { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .wall-lists .wall-card { display: flex; flex-direction: column; }
@@ -528,6 +529,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 .wall-evt { display: block; font-size: 1.1rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wall-dot { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; margin-right: 0.45rem; vertical-align: 0.1em; }
 .wall-dinner { display: block; font-size: 1rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wall-unplanned { opacity: 0.7; }
 .wall-day-weather { display: flex; align-items: center; gap: 0.3rem; font-size: 1.2rem; font-weight: 700; flex-shrink: 0; }
 .wall-flip { display: inline-flex; align-items: center; gap: 0.6rem; min-height: 64px; padding: 0 1.6rem; border: 0; border-radius: 999px; background: var(--accent); color: var(--on-accent); font: inherit; font-size: 1.4rem; font-weight: 700; cursor: pointer; flex-shrink: 0; touch-action: manipulation; }
 .wall-flip:active { opacity: 0.8; }
@@ -610,4 +612,4 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 .wall-chip { display: block; font-size: 0.92rem; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wall-chip-allday { color: #fff; border-radius: 5px; padding: 0 0.35rem; font-weight: 600; }
 .wall-chip .wall-dot { width: 0.5rem; height: 0.5rem; margin-right: 0.3rem; }
-.wall-more { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+.wall-cell-more { font-size: 0.85rem; color: var(--muted); font-weight: 600; }

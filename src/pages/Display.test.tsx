@@ -6,7 +6,7 @@ import type { Note, Shopping, Task } from '../api/types'
 const shopping = vi.hoisted(() => ({ current: { data: undefined as Shopping | null | undefined, isSuccess: true } }))
 vi.mock('../api/hooks', () => ({ useShopping: () => shopping.current, usePeople: () => ({ data: [] }), useNotes: () => ({ data: undefined, isLoading: false }), mutations: {} }))
 
-const { ItemList, NotesView, ShoppingPanel, TimerPanel, TodoList, entryMs, fmtCountdown, fmtEntry, restoreTimer } = await import('./Display')
+const { ItemList, NotesView, ShoppingPanel, TimerPanel, TodoCard, TodoList, entryMs, fmtCountdown, fmtEntry, restoreTimer } = await import('./Display')
 
 describe('wall Today card: to-dos and shopping always show', () => {
   it('an empty to-do list still shows its heading', () => {
@@ -56,6 +56,12 @@ describe('wall columns stay a fixed third each', () => {
     expect(rule('.wall-body')).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))')
   })
 
+  it("the month's \"+N more\" label has its own class, not the big \"+N more\" button's", () => {
+    // Both used .wall-more, so on the wall the month label took the 48px pill and pushed a busy day's events out of its cell.
+    expect(css.match(/^\.wall-more \{/gm)).toHaveLength(1)
+    expect(rule('.wall-cell-more')).not.toContain('min-height')
+  })
+
   it('the shopping list scrolls down instead of adding columns sideways', () => {
     expect(rule('.wall-shop-scroll')).toContain('overflow-y: auto')
     expect(rule('.wall-shop')).not.toMatch(/flex: 1|overflow: hidden/)
@@ -69,14 +75,23 @@ describe('wall columns stay a fixed third each', () => {
 describe('wall Lists page: everything in full', () => {
   const todos = Array.from({ length: 9 }, (_, n) => ({ id: `t${n}`, title: `Job ${n}`, done: false }) as Task)
 
-  it('the Today card shows six to-dos, and "+N more" opens Lists when it can', () => {
+  it('To do has its own card, so a busy Today card can no longer push it off the bottom of the frame', () => {
+    const html = renderToStaticMarkup(<TodoCard todos={todos} today="2026-11-07" onMore={() => {}} />)
+    expect(html).toMatch(/^<section class="wall-card wall-todo"/)
+    expect(html).toContain('<h2 id="wall-todo-h">To do<span class="wall-count">9</span></h2>')
+    expect(html).toContain('<button type="button" class="wall-more">+3 more</button>')
+    expect(html).toContain('Job 5')
+    expect(html).not.toContain('Job 6')
+  })
+
+  it('shows six to-dos, and "+N more" opens Lists when it can', () => {
     const plain = renderToStaticMarkup(<TodoList todos={todos} today="2026-11-07" />)
     expect(plain).toContain('Job 5')
     expect(plain).not.toContain('Job 6')
     expect(plain).toContain('<p class="wall-muted wall-more-todos">+3 more</p>')
-    // By the heading, so a busy Today card can't push it out of sight.
+    // By the heading, so it can't be pushed out of sight.
     const linked = renderToStaticMarkup(<TodoList todos={todos} today="2026-11-07" onMore={() => {}} />)
-    expect(linked).toMatch(/^<div class="wall-card-head wall-todo-head"><h3>To do<\/h3><button type="button" class="wall-more">\+3 more<\/button><\/div>/)
+    expect(linked).toMatch(/^<div class="wall-card-head"><h2 id="wall-todo-h">To do<span class="wall-count">9<\/span><\/h2><button type="button" class="wall-more">\+3 more<\/button><\/div>/)
     expect(linked).not.toContain('wall-more-todos')
   })
 
@@ -84,7 +99,7 @@ describe('wall Lists page: everything in full', () => {
     const html = renderToStaticMarkup(<TodoList todos={todos} today="2026-11-07" limit={Infinity} heading={false} scroll />)
     expect(html).toContain('Job 8')
     expect(html).not.toContain('more')
-    expect(html).not.toContain('<h3>')
+    expect(html).not.toContain('<h2')
     expect(html).toMatch(/^<div class="wall-scroll"><ul class="wall-list">/)
   })
 

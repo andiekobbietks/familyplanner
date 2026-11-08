@@ -29,8 +29,10 @@ const VIEWS: { id: View; label: string; icon: IconName }[] = [
 ]
 /** Events a month cell has room for at 1280×800, by the number of weeks the month spans. */
 const MONTH_CELL_EVENTS: Record<number, number> = { 4: 4, 5: 3, 6: 2 }
-/** To-dos on the Today card before the rest collapse to "+N more", so the shopping list keeps its room. */
+/** To-dos on the Today view before the rest collapse to "+N more", so Chores keeps its room below them. */
 const TODOS_SHOWN = 6
+/** With no chores the To do card has the whole column. */
+const TODOS_SHOWN_ALONE = 10
 /** How long Undo stays up after a to-do or list item is ticked on the wall. */
 const UNDO_FOR_MS = 8_000
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
@@ -103,6 +105,7 @@ function DisplayBoard() {
   const { data: settings } = useSettings()
   const { data: weather } = useWeather()
   const { data: tasks = [] } = useTasks('all')
+  const { data: chores } = useChores(mondayOf(today))
   const thisWeek = usePlan(mondayOf(today))
   const nextWeek = usePlan(mondayOf(lastDay))
 
@@ -174,7 +177,6 @@ function DisplayBoard() {
             {unavailable && <p className="wall-note">Google calendar unavailable</p>}
             <Agenda events={byDay.get(today) ?? []} showCalendar={showCalendar} nowMs={now.getTime()} />
             <Meals plan={plan.filter((p) => p.date === today)} slots={slots} />
-            <TodoList todos={todos} today={today} onDone={setTodoDone} onMore={() => setView('lists')} />
           </section>
           <ShoppingPanel onOpen={() => setView('lists')} />
         </div>
@@ -188,7 +190,11 @@ function DisplayBoard() {
           </ul>
         </section>
 
-        <Chores week={mondayOf(today)} />
+        {/* The two things that change through the day sit together: what's to do, and who has which chore. */}
+        <div className="wall-col">
+          <TodoCard todos={todos} today={today} onDone={setTodoDone} onMore={() => setView('lists')} limit={chores?.chores.length ? TODOS_SHOWN : TODOS_SHOWN_ALONE} />
+          <Chores week={mondayOf(today)} />
+        </div>
       </main>
       )}
     </div>
@@ -462,7 +468,7 @@ function DayRow({ date, events, dinner, weather }: { date: string; events: Occur
             {e.title}
           </span>
         ))}
-        <span className="wall-dinner">{dinner ?? 'No dinner planned'}</span>
+        <span className={dinner ? 'wall-dinner' : 'wall-dinner wall-unplanned'}>{dinner ?? 'No dinner planned'}</span>
       </span>
       {forecast && look && (
         <span className="wall-day-weather" role="img" aria-label={`${look.label}, high ${degrees(forecast.high)}`}>
@@ -481,7 +487,7 @@ function Chores({ week }: { week: string }) {
   return (
     <section className="wall-card wall-chores" aria-labelledby="wall-chores-h">
       <h2 id="wall-chores-h">Chores this week</h2>
-      <ul className="wall-list">
+      <ul className="wall-list wall-scroll">
         {data.chores.map((c) => {
           const person = people.get(data.assignments.find((a) => a.choreId === c.id)?.memberId ?? '')
           return (
@@ -574,7 +580,7 @@ function TickButton({ label, onTick }: { label: string; onTick: () => void }) {
 }
 
 /**
- * The to-dos, on the Today card (the first few, and "+N more" by the heading, which opens Lists) and on the Lists page (all of them).
+ * The to-dos, on the Today view (the first few, and "+N more" by the heading, which opens Lists) and on the Lists page (all of them).
  * Always shown, so an empty list reads as done rather than missing. With `onDone`, each has a tick button.
  * With `scroll`, the rows scroll and Undo stays in view below them.
  */
@@ -620,23 +626,41 @@ export function TodoList({
         {more > 0 && !onMore && <p className="wall-muted wall-more-todos">+{more} more</p>}
       </>
     )
+  const title = (
+    <h2 id="wall-todo-h">
+      To do
+      {shown.length > 0 && <span className="wall-count">{shown.length}</span>}
+    </h2>
+  )
   return (
     <>
-      {/* "+N more" sits by the heading, so a busy Today card can't push it out of sight. */}
+      {/* "+N more" sits by the heading, so it can't be pushed out of sight. */}
       {heading &&
         (more > 0 && onMore ? (
-          <div className="wall-card-head wall-todo-head">
-            <h3>To do</h3>
+          <div className="wall-card-head">
+            {title}
             <button type="button" className="wall-more" onClick={onMore}>
               +{more} more
             </button>
           </div>
         ) : (
-          <h3>To do</h3>
+          title
         ))}
       {scroll ? <div className="wall-scroll">{rows}</div> : rows}
       <TickNotes undoLabel={undo && `Done: ${undo.title}`} onUndo={() => undo && void untick(undo)} failed={failed} />
     </>
+  )
+}
+
+/**
+ * The Today view's to-dos, in a card of their own at the top of the right-hand column. They used to sit in the
+ * Today card under the events and meals, where a busy day pushed them off the bottom of the frame.
+ */
+export function TodoCard(props: { todos: Task[]; today: string; onDone?: (id: string, done: boolean) => Promise<unknown>; onMore?: () => void; limit?: number }) {
+  return (
+    <section className="wall-card wall-todo" aria-labelledby="wall-todo-h">
+      <TodoList {...props} />
+    </section>
   )
 }
 
@@ -951,7 +975,7 @@ function MonthView({ today, nowMs }: { today: string; nowMs: number }) {
             <div key={d} className={`wall-cell${d.slice(0, 7) !== month ? ' wall-other' : ''}${d === today ? ' wall-is-today' : ''}${d < today ? ' wall-past' : ''}`}>
               <span className="wall-cell-head">
                 <span className="wall-num">{Number(d.slice(8))}</span>
-                {shown.length < list.length && <span className="wall-more">+{list.length - shown.length} more</span>}
+                {shown.length < list.length && <span className="wall-cell-more">+{list.length - shown.length} more</span>}
               </span>
               {shown.map((e) =>
                 e.allDay ? (
