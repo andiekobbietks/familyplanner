@@ -77,11 +77,12 @@ Notes:
 
 The landing page after login. It answers "what's happening today?" first and lets the common jobs be done in place.
 
-- A greeting and today's date, with the current weather and today's high, low and chance of rain for Reading, UK.
+- A greeting and today's date, with the current weather and today's high, low and chance of rain for Reading, UK. On a larger screen the weather sits beside the greeting.
+- One row of small links to Chat, Notes (Family notes) and Documents, the things looked up now and then. It fits a phone's width without wrapping.
 - A Today card: today's events in time order (past ones dimmed), today's lunch and dinner (and breakfast if enabled) as editable fields, and the current user's open tasks due today or overdue, each completed with one tap.
-- The next six days, one line each: that day's events, dinner and forecast high. Tapping a day opens it with the same detail as Today, so tomorrow's dinner can be planned without leaving the page. From 15:00 tomorrow is open by default, since packed lunches are prepared the evening before. 
-- This week's chores and who has each one, linking to the schedule. Hidden until there are chores.
-- A tile per shopping list with its unchecked count, linking to the list.
+- The next six days, one line each: that day's events, dinner (faint when none is planned), the number of the current user's tasks due that day, and the forecast high. Tapping a day opens it with the same detail as Today, so tomorrow's dinner can be planned without leaving the page; the open day's line gives its forecast in words instead of repeating its events. From 15:00 tomorrow is open by default, since packed lunches are prepared the evening before.
+- Lists: a tile with the current user's open to-dos, dated or not, linking to To-dos, then a tile per shopping list with its unchecked count, linking to the list.
+- This week's chores and who has each one, linking to the schedule. Hidden until there are chores. It comes last because it is the only part that can't be acted on.
 - If the forecast can't be fetched, the dashboard shows none and otherwise works. The last good one may be shown for up to six hours.
 - A floating add button in thumb reach opens a sheet: type text, choose shopping or to-do, submit. It stays open for adding several things and defaults to the most recently used type.
 

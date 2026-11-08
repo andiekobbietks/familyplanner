@@ -54,25 +54,31 @@ export function Home() {
   return (
     <>
       <header className="hello">
-        <h1>
-          {greeting(now.getHours())}
-          {me ? `, ${me.displayName}` : ''}
-        </h1>
+        <div className="hello-text">
+          <h1>
+            {greeting(now.getHours())}
+            {me ? `, ${me.displayName}` : ''}
+          </h1>
+          <p className="muted">{fmtDayLong(today)}</p>
+        </div>
         {weather?.forecast && <WeatherToday weather={weather} today={today} />}
-        <p className="muted">{fmtDayLong(today)}</p>
-        <Link to="/chat" className="chat-link">
+      </header>
+
+      {/* Looked up now and then, so one quiet row rather than a section (5.10 to 5.12). */}
+      <nav className="shortcuts" aria-label="Look things up">
+        <Link to="/chat">
           <Icon name="chat" size={18} />
-          Ask about the planner
+          Chat
         </Link>
-        <Link to="/notes" className="chat-link">
+        <Link to="/notes">
           <Icon name="note" size={18} />
-          Family notes
+          Notes
         </Link>
-        <Link to="/documents" className="chat-link">
+        <Link to="/documents">
           <Icon name="doc" size={18} />
           Documents
         </Link>
-      </header>
+      </nav>
 
       <div className="dash">
         <section className="dash-today" aria-labelledby="today-h">
@@ -103,14 +109,15 @@ export function Home() {
           </ul>
         </section>
 
-        <ChoresThisWeek week={mondayOf(today)} />
-
-        <section className="dash-shop" aria-labelledby="shop-h">
-          <h2 id="shop-h" className="section-title">
-            Shopping
+        <section className="dash-lists" aria-labelledby="lists-h">
+          <h2 id="lists-h" className="section-title">
+            Lists
           </h2>
-          {lists.length === 0 && <p className="empty">No lists yet.</p>}
           <div className="shop-tiles">
+            <Link to="/todos" className="shop-tile">
+              <b>{tasks.length}</b>
+              <span>My to-dos</span>
+            </Link>
             {lists.map((l) => (
               <Link key={l.id} to={`/shopping?list=${l.id}`} className="shop-tile">
                 <b>{l.uncheckedCount}</b>
@@ -119,6 +126,8 @@ export function Home() {
             ))}
           </div>
         </section>
+
+        <ChoresThisWeek week={mondayOf(today)} />
       </div>
 
       <QuickAdd />
@@ -239,11 +248,17 @@ function DayDetail({ date, events, plan, slots, showCalendar, tasks }: DayProps)
   )
 }
 
+function forecastLine(label: string, day: WeatherDay) {
+  const rain = day.rainChance !== null ? `, ${day.rainChance}% rain` : ''
+  return `${label} · high ${degrees(day.high)}, low ${degrees(day.low)}${rain}`
+}
+
 /** One line per day until tapped, when it opens up with the same detail as today. */
 function WeekRow({ open, onToggle, ...day }: DayProps & { open: boolean; onToggle: () => void }) {
-  const { date, events, plan, forecast } = day
+  const { date, events, plan, tasks, forecast } = day
   const look = forecast && describeWeather(forecast.code)
   const dinner = plan.find((p) => p.slot === 'dinner')?.text
+  const todos = tasks.length > 0 && `${tasks.length} to-do${tasks.length > 1 ? 's' : ''}`
   return (
     <li className={open ? 'open' : ''}>
       <button type="button" className="week-row" aria-expanded={open} onClick={onToggle}>
@@ -251,17 +266,25 @@ function WeekRow({ open, onToggle, ...day }: DayProps & { open: boolean; onToggl
           <span>{fmtWeekday(date)}</span>
           <b>{Number(date.slice(8))}</b>
         </span>
-        <span className="grow week-summary">
-          {events.length === 0 && <span className="week-events muted">Nothing on</span>}
-          {events.map((e) => (
-            <span key={`${e.id}-${e.occurrenceDate}`} className={`evt ${e.allDay ? '' : 'timed'}`} style={{ '--c': e.external.colour } as CSSProperties}>
-              {!e.allDay && <strong>{fmtTime(e.start)} </strong>}
-              {e.title}
+        {/* Open, the detail below lists the events and meals, so the line says what the weather will do instead. */}
+        {open ? (
+          <span className="grow week-summary week-open">{look ? forecastLine(look.label, forecast) : fmtDayLong(date)}</span>
+        ) : (
+          <span className="grow week-summary">
+            {events.length === 0 && <span className="week-events muted">Nothing on</span>}
+            {events.map((e) => (
+              <span key={`${e.id}-${e.occurrenceDate}`} className={`evt ${e.allDay ? '' : 'timed'}`} style={{ '--c': e.external.colour } as CSSProperties}>
+                {!e.allDay && <strong>{fmtTime(e.start)} </strong>}
+                {e.title}
+              </span>
+            ))}
+            <span className="week-dinner">
+              <span className={dinner ? 'dinner' : 'dinner unplanned'}>{dinner ?? 'No dinner planned'}</span>
+              {todos && <span className="week-todos">{todos}</span>}
             </span>
-          ))}
-          <span className="week-dinner">{dinner ?? 'No dinner planned'}</span>
-        </span>
-        {forecast && look && (
+          </span>
+        )}
+        {!open && forecast && look && (
           <span className="week-weather" role="img" aria-label={`${look.label}, high ${degrees(forecast.high)}`} title={look.label}>
             <Icon name={look.icon} size={20} />
             {degrees(forecast.high)}

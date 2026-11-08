@@ -237,19 +237,30 @@ input[type='checkbox']:checked::after { content: ''; width: 6px; height: 11px; m
 details.done summary { cursor: pointer; padding: 0.75rem 0; color: var(--muted); font-weight: 600; }
 
 /* Dashboard */
-.hello { padding: 0.25rem 0 1rem; }
+.hello { padding: 0.25rem 0 0.75rem; }
 .hello h1 { font-size: 1.75rem; margin: 0 0 0.1rem; }
 .hello p { margin: 0; }
-.hello .weather-now { display: flex; flex-wrap: wrap; align-items: center; gap: 0.15rem 0.5rem; margin: 0.45rem 0 0.5rem; font-size: 1.2rem; font-weight: 600; }
+.hello .weather-now { display: flex; flex-wrap: wrap; align-items: center; gap: 0.15rem 0.5rem; margin: 0.6rem 0 0; font-size: 1.2rem; font-weight: 600; }
 .weather-now b { font-family: var(--display); font-size: 2rem; font-weight: 800; line-height: 1.1; }
 .weather-now .muted { width: 100%; font-size: 1rem; font-weight: 400; }
-.dash { display: grid; gap: 1.25rem; }
+.shortcuts { display: flex; gap: 0.5rem; overflow-x: auto; margin: 0 -1rem 1.25rem; padding: 0.15rem 1rem 0.35rem; scrollbar-width: none; }
+.shortcuts a { flex: 1 1 auto; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; min-height: 40px; padding: 0 0.7rem; border-radius: 999px; background: var(--card); box-shadow: var(--shadow); color: var(--text); font-size: 0.92rem; font-weight: 600; text-decoration: none; }
+.shortcuts .icon { color: var(--accent); }
+/* Room at the end so the add button never sits over the last row. */
+.dash { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; padding-bottom: 4.5rem; }
 .dash .card { margin: 0; }
+@media (min-width: 768px) {
+  .shortcuts { margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; }
+  .shortcuts a { flex: 0 0 auto; padding: 0 0.95rem 0 0.8rem; }
+}
 @media (min-width: 900px) {
-  .dash { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-areas: 'today week' 'chores week' 'shop week'; align-items: start; column-gap: 1.5rem; }
+  /* The weather moves up beside the greeting, which gives Today back a band of height. */
+  .hello { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; }
+  .hello .weather-now { justify-content: flex-end; margin: 0; text-align: right; }
+  .dash { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-areas: 'today week' 'lists week' 'chores week'; align-items: start; column-gap: 1.5rem; }
   .dash-today { grid-area: today; }
   .dash-week { grid-area: week; }
-  .dash-shop { grid-area: shop; }
+  .dash-lists { grid-area: lists; }
   .dash-chores { grid-area: chores; }
 }
 .today-card { border-top: 4px solid var(--sun); }
@@ -276,15 +287,23 @@ details.done summary { cursor: pointer; padding: 0.75rem 0; color: var(--muted);
 .week-weather { display: flex; align-items: center; gap: 0.2rem; margin-top: 0.45rem; color: var(--muted); font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .week-summary { display: block; padding-top: 0.1rem; }
 .week-summary .evt { font-size: 0.88rem; padding: 3px 8px; margin: 0 0 3px; }
-.week-events, .week-dinner { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.week-events, .week-dinner .dinner { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .week-events { font-weight: 600; font-size: 0.95rem; }
 .week-events.muted { font-weight: 400; }
-.week-dinner { padding-top: 1px; font-size: 0.85rem; color: var(--muted); }
+/* The dinner gives way before the to-do count does. */
+.week-dinner { display: flex; gap: 0.5rem; padding-top: 1px; font-size: 0.85rem; color: var(--muted); }
+.week-dinner .dinner { min-width: 0; }
+.week-dinner .unplanned { opacity: 0.75; }
+.week-todos { flex-shrink: 0; color: var(--accent); font-weight: 600; }
+.week-open { padding-top: 0.6rem; color: var(--muted); font-size: 0.95rem; font-weight: 600; }
 
 .shop-tiles { display: flex; gap: 0.6rem; overflow-x: auto; margin: 0 -1rem; padding: 0 1rem 0.25rem; scrollbar-width: none; }
-.shop-tile { flex: 0 0 auto; min-width: 8.5rem; display: flex; flex-direction: column; padding: 0.7rem 0.9rem; border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); color: var(--text); text-decoration: none; font-weight: 600; }
+.shop-tile { flex: 1 0 auto; min-width: 6.5rem; display: flex; flex-direction: column; padding: 0.7rem 0.9rem; border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); color: var(--text); text-decoration: none; font-weight: 600; }
 .shop-tile b { font-family: var(--display); font-size: 1.6rem; font-weight: 800; line-height: 1.1; color: var(--accent); }
-@media (min-width: 768px) { .shop-tiles { margin: 0; padding: 0 0 0.25rem; } }
+@media (min-width: 768px) {
+  .shop-tiles { margin: 0; padding: 0 0 0.25rem; }
+  .shop-tile { flex-grow: 0; min-width: 8.5rem; }
+}
 
 /* Calendar */
 .cal-tools { display: flex; align-items: flex-start; gap: 0.5rem; }
@@ -397,10 +416,6 @@ details.done summary { cursor: pointer; padding: 0.75rem 0; color: var(--muted);
 .chore-name { display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.3rem; font-weight: 600; }
 .chore-name .grow { overflow-wrap: anywhere; }
 .chore-name .icon-btn { width: 36px; height: 36px; margin-right: -0.4rem; }
-
-/* Chat */
-.chat-link { display: inline-flex; align-items: center; gap: 0.35rem; min-height: 40px; font-weight: 600; text-decoration: none; }
-.chat-link + .chat-link { margin-left: 1.25rem; }
 
 /* Family notes */
 .note + .note { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--line); }
