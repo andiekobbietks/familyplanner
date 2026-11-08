@@ -1,12 +1,12 @@
 import css from '../styles.css?raw'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-import type { Shopping, Task } from '../api/types'
+import type { Note, Shopping, Task } from '../api/types'
 
 const shopping = vi.hoisted(() => ({ current: { data: undefined as Shopping | null | undefined, isSuccess: true } }))
-vi.mock('../api/hooks', () => ({ useShopping: () => shopping.current, usePeople: () => ({ data: [] }), mutations: {} }))
+vi.mock('../api/hooks', () => ({ useShopping: () => shopping.current, usePeople: () => ({ data: [] }), useNotes: () => ({ data: undefined, isLoading: false }), mutations: {} }))
 
-const { ItemList, ShoppingPanel, TimerPanel, TodoList, entryMs, fmtCountdown, fmtEntry, restoreTimer } = await import('./Display')
+const { ItemList, NotesView, ShoppingPanel, TimerPanel, TodoList, entryMs, fmtCountdown, fmtEntry, restoreTimer } = await import('./Display')
 
 describe('wall Today card: to-dos and shopping always show', () => {
   it('an empty to-do list still shows its heading', () => {
@@ -180,5 +180,30 @@ describe('wall timer (tap the clock)', () => {
     expect(html).toContain("Time&#x27;s up")
     expect(html).toContain('>OK</button>')
     expect(html).not.toContain('min</button>')
+  })
+})
+
+describe('wall family notes', () => {
+  const notes = [
+    { id: 'a', title: 'Boiler', category: 'Appliances', body: 'Manual: https://example.com/boiler.pdf', updatedAt: '' },
+    { id: 'b', title: 'Next door', category: 'Neighbours', body: 'Sam and Alex', updatedAt: '' },
+  ] as Note[]
+
+  it('lists every note and opens the first', () => {
+    const html = renderToStaticMarkup(<NotesView notes={notes} />)
+    expect(html).toContain('Next door')
+    expect(html).toContain('wall-recipe-title">Boiler</h2>')
+    expect(html).toContain('aria-label="Filter by category"')
+  })
+
+  it('is read-only, and an address stays text so the frame never leaves the wall', () => {
+    const html = renderToStaticMarkup(<NotesView notes={notes} />)
+    expect(html).toContain('https://example.com/boiler.pdf')
+    expect(html).not.toContain('<a ')
+    expect(html).not.toMatch(/Edit|Delete/)
+  })
+
+  it('says how to add notes when there are none', () => {
+    expect(renderToStaticMarkup(<NotesView notes={[]} />)).toContain('No notes yet')
   })
 })

@@ -121,6 +121,17 @@ export interface Recipe extends RecipeInput {
   id: string
 }
 
+/** A family note: neighbours, appliances, where a manual is. The body is plain text. */
+export interface NoteInput {
+  title: string
+  category?: string
+  body: string
+}
+export interface Note extends NoteInput {
+  id: string
+  updatedAt: string
+}
+
 export interface Chore {
   id: string
   name: string

@@ -64,6 +64,10 @@ export function Home() {
           <Icon name="chat" size={18} />
           Ask about the planner
         </Link>
+        <Link to="/notes" className="chat-link">
+          <Icon name="note" size={18} />
+          Family notes
+        </Link>
       </header>
 
       <div className="dash">

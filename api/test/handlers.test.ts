@@ -13,7 +13,8 @@ import { erase, exportAll, getMembers, invite, removeMember, renameMember } from
 import { getWeather } from '../src/handlers/weather'
 import { assignChore, copyChoreWeek, createChore, deleteChore, getChores, patchChore, unassignChore } from '../src/handlers/chores'
 import { createRecipe, deleteRecipe, getRecipes, intakeRecipes, patchRecipe } from '../src/handlers/recipes'
-import type { BaseDoc, Caller, Chore, ChoreWeek, Item, List, Member, Recipe } from '../src/lib/types'
+import { createNote, deleteNote, getNotes, intakeNotes, patchNote } from '../src/handlers/notes'
+import type { BaseDoc, Caller, Chore, ChoreWeek, Item, List, Member, Note, Recipe } from '../src/lib/types'
 import { ValidationError } from '../src/lib/schemas'
 import { setStore } from '../src/lib/store'
 import { stamp } from '../src/lib/util'
@@ -167,6 +168,51 @@ describe('recipes', () => {
   })
 })
 
+describe('notes', () => {
+  const create = async (body: unknown) => (await createNote(ctx, {}, q(), body)).body as Note
+  const list = async () => (await getNotes(ctx, {}, q(), undefined)).body as Note[]
+
+  it('needs only a title, and any member can add one', async () => {
+    const charlie: Caller = { memberId: 'm-charlie', role: 'member', familyId: 'home', displayName: 'Charlie' }
+    const { body } = await createNote({ ...ctx, caller: charlie }, {}, q(), { title: 'Wi-Fi' })
+    expect(body).toMatchObject({ type: 'note', title: 'Wi-Fi', body: '', createdBy: 'm-charlie' })
+    expect((body as Note).category).toBeUndefined()
+  })
+  it('lists by category, uncategorised last, then by title', async () => {
+    await store.deleteAll('home')
+    await create({ title: 'Wi-Fi' })
+    await create({ title: 'Washing machine', category: 'Appliances' })
+    await create({ title: 'No. 16', category: 'Neighbours' })
+    await create({ title: 'Boiler', category: 'Appliances' })
+    expect((await list()).map((n) => n.title)).toEqual(['Boiler', 'Washing machine', 'No. 16', 'Wi-Fi'])
+  })
+  it('S8: audit fields in the body are ignored', async () => {
+    const n = await create({ title: 'Boiler', createdBy: 'm-charlie', familyId: 'other', type: 'recipe' })
+    expect(n).toMatchObject({ createdBy: 'm-tim', familyId: 'home', type: 'note' })
+  })
+  it('caps the title at 200, the category at 50 and the body at 10,000', async () => {
+    await expect(create({ title: 'x'.repeat(201) })).rejects.toBeInstanceOf(ValidationError)
+    await expect(create({ title: 'Boiler', category: 'x'.repeat(51) })).rejects.toBeInstanceOf(ValidationError)
+    await expect(create({ title: 'Boiler', body: 'x'.repeat(10001) })).rejects.toBeInstanceOf(ValidationError)
+    expect((await create({ title: 'Boiler', body: 'x'.repeat(10000) })).body).toHaveLength(10000)
+  })
+  it('a patch changes only the fields sent, and an emptied category drops it', async () => {
+    const n = await create({ title: 'Boiler', category: 'Appliances', body: 'Service in October' })
+    const { body } = await patchNote(ctx, { id: n.id }, q(), { body: 'Service in November' })
+    expect(body).toMatchObject({ title: 'Boiler', category: 'Appliances', body: 'Service in November' })
+    const cleared = (await patchNote(ctx, { id: n.id }, q(), { category: '  ' })).body as Note
+    expect(cleared.category).toBeUndefined()
+  })
+  it('delete removes it, and other document types are out of reach', async () => {
+    const n = await create({ title: 'Boiler' })
+    await deleteNote(ctx, { id: n.id }, q(), undefined)
+    expect(await store.get('home', n.id, 'note')).toBeUndefined()
+    await expect(deleteNote(ctx, { id: 'r-chicken' }, q(), undefined)).rejects.toMatchObject({ status: 404 })
+    await expect(patchNote(ctx, { id: 'm-tim' }, q(), { title: 'x' })).rejects.toMatchObject({ status: 404 })
+    expect(await store.get('home', 'r-chicken', 'recipe')).toBeDefined()
+  })
+})
+
 describe('weather', () => {
   const reply = {
     current: { temperature_2m: 10.2, weather_code: 3, is_day: 1 },
@@ -251,6 +297,49 @@ describe('member colours', () => {
   })
 })
 
+describe('note intake', () => {
+  const token = 'a'.repeat(64)
+  const service = () => ({ ...ctx, caller: integrationCaller(token) })
+  const send = async (notes: unknown[]) => (await intakeNotes(service(), {}, q(), { notes })).body as { added: string[]; skipped: string[]; failed: { title: string; error: string }[] }
+  const post = (headers: Record<string, string>, body: unknown = { notes: [{ title: 'Wi-Fi' }] }) =>
+    run({ method: 'POST', headers: new Headers(headers), json: async () => body } as never, { log() {}, warn() {}, error() {} } as never, 'integration/notes', { integration: true }, intakeNotes)
+
+  beforeEach(() => {
+    process.env.INTEGRATION_TOKEN = token
+    setStore(store)
+  })
+
+  it('adds new notes, attributed to the service', async () => {
+    expect(await send([{ title: 'Oven', category: 'Appliances', body: 'Neff' }, { title: 'Wi-Fi', category: '' }])).toEqual({ added: ['Oven', 'Wi-Fi'], skipped: [], failed: [] })
+    const saved = await store.byType<Note>('home', 'note')
+    expect(saved.find((n) => n.title === 'Oven')).toMatchObject({ createdBy: 'integration', category: 'Appliances', body: 'Neff' })
+    expect(saved.find((n) => n.title === 'Wi-Fi')).toMatchObject({ body: '' })
+    expect(saved.find((n) => n.title === 'Wi-Fi')?.category).toBeUndefined()
+  })
+  it('skips a title the app has, leaving the edited one alone, and adds a repeated title once', async () => {
+    await createNote(ctx, {}, q(), { title: 'Oven', body: 'Edited in the app' })
+    expect(await send([{ title: ' OVEN ', body: 'From the file' }, { title: 'Hob' }, { title: 'hob' }])).toMatchObject({ added: ['Hob'], skipped: ['OVEN', 'hob'] })
+    const ovens = (await store.byType<Note>('home', 'note')).filter((n) => n.title.toLowerCase() === 'oven')
+    expect(ovens).toHaveLength(1)
+    expect(ovens[0].body).toBe('Edited in the app')
+  })
+  it('one bad note does not hold back the rest, and a batch is capped at 100', async () => {
+    const r = await send([{ title: 'Long', body: 'x'.repeat(10001) }, null, { title: 'Oven' }])
+    expect(r.added).toEqual(['Oven'])
+    expect(r.failed.map((f) => f.title)).toEqual(['Long', 'Untitled'])
+    expect(r.failed[0].error).toContain('body')
+    await expect(send(Array.from({ length: 101 }, (_, i) => ({ title: `N${i}` })))).rejects.toBeInstanceOf(ValidationError)
+  })
+  it('S31: only the token gets in, and a refused request writes nothing', async () => {
+    expect(await post({ 'x-integration-token': token })).toMatchObject({ status: 200, jsonBody: { added: ['Wi-Fi'] } })
+    const before = (await store.byType('home', 'note')).length
+    for (const headers of [{}, { 'x-integration-token': 'wrong' }, { 'x-ms-client-principal': principal('dev-tim', 'tim@example.com', ['admin']) }]) {
+      expect(await post(headers, { notes: [{ title: 'Sneaky' }] })).toMatchObject({ status: 403 })
+    }
+    expect(await store.byType('home', 'note')).toHaveLength(before)
+  })
+})
+
 describe('recipe intake', () => {
   const token = 'a'.repeat(64)
   const service = () => ({ ...ctx, caller: integrationCaller(token) })
@@ -307,9 +396,13 @@ describe('recipe intake', () => {
     process.env.INTEGRATION_TOKEN = 'short'
     expect(() => integrationCaller('short')).toThrow()
   })
-  it('the token grants no route but this one', () => {
+  it('the token grants no route but adding recipes and adding notes', () => {
     const src = readFileSync(`${__dirname}/../src/index.ts`, 'utf8')
-    expect(src.match(/integration: true/g)).toHaveLength(1)
+    const lines = src.split('\n').filter((l) => l.includes('integration: true'))
+    expect(lines.map((l) => /route\('[^']+', '(\w+)', '([^']+)'/.exec(l)?.slice(1))).toEqual([
+      ['POST', 'integration/recipes'],
+      ['POST', 'integration/notes'],
+    ])
   })
   it('S5: only the integration path is open at the edge, and its rule comes first', () => {
     const { routes } = JSON.parse(readFileSync(`${__dirname}/../../staticwebapp.config.json`, 'utf8')) as { routes: { route: string; allowedRoles?: string[] }[] }
@@ -392,10 +485,11 @@ describe('chores', () => {
 })
 
 describe('export', () => {
-  it('A10: includes recipes and chores', async () => {
+  it('A10: includes recipes, chores and notes', async () => {
     const { body } = await exportAll(ctx, {}, q(), undefined)
     const out = body as Record<string, BaseDoc[]>
     expect(out.recipe.length).toBeGreaterThan(0)
+    expect(out.note.length).toBeGreaterThan(0)
     expect(out.chore.length).toBeGreaterThan(0)
     expect(out.choreWeek.length).toBeGreaterThan(0)
   })

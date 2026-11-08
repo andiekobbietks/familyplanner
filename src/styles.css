@@ -400,6 +400,15 @@ details.done summary { cursor: pointer; padding: 0.75rem 0; color: var(--muted);
 
 /* Chat */
 .chat-link { display: inline-flex; align-items: center; gap: 0.35rem; min-height: 40px; font-weight: 600; text-decoration: none; }
+.chat-link + .chat-link { margin-left: 1.25rem; }
+
+/* Family notes */
+.note + .note { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--line); }
+.note-head { display: flex; align-items: center; gap: 0.25rem; }
+.note-head h3 { margin: 0; font-size: 1.05rem; color: var(--text); overflow-wrap: anywhere; }
+.notes-search { margin-bottom: 1rem; }
+.note-head .icon-btn { width: 36px; height: 36px; margin-right: -0.4rem; }
+.note-body { margin: 0.3rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .chat-log { display: flex; flex-direction: column; gap: 0.6rem; min-height: 40dvh; }
 .chat-examples { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .chat-examples .btn { padding: 0.45rem 0.8rem; white-space: normal; text-align: left; }
@@ -425,7 +434,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 /* Wall display (/display): a 1280×800 landscape frame read from across the room. Its browser may be old
    (Android 6 stops at Chrome 106), so nothing newer than that: no color-mix, :has or nesting. */
 .wall { height: 100vh; display: flex; flex-direction: column; padding: 1.25rem 1.5rem; gap: 1rem; overflow: hidden; cursor: default; user-select: none; }
-.wall-top { display: flex; justify-content: space-between; align-items: center; gap: 2rem; }
+.wall-top { display: flex; justify-content: space-between; align-items: center; gap: 1.25rem; }
 .wall-unpaired { align-items: center; justify-content: center; text-align: center; gap: 0.5rem; }
 .wall-clock { font-family: var(--display); font-size: 4.5rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; display: block; padding: 0; border: 0; background: none; color: var(--text); cursor: pointer; touch-action: manipulation; }
 .wall-date { white-space: nowrap; font-size: 1.5rem; font-weight: 600; color: var(--muted); margin-top: 0.25rem; }
@@ -490,6 +499,10 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 .wall-views { display: flex; gap: 0.5rem; flex-shrink: 0; }
 .wall-views .wall-flip { padding: 0 0.95rem; font-size: 1.2rem; gap: 0.4rem; background: var(--card); color: var(--text); box-shadow: var(--shadow); }
 .wall-views .wall-flip[aria-pressed='true'] { background: var(--accent); color: var(--on-accent); }
+/* Family notes: a small, quiet button after the views, because notes are looked up now and then. */
+.wall-notes-btn { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem; min-width: 52px; min-height: 64px; padding: 0 0.3rem; border: 0; border-radius: 14px; background: none; color: var(--muted); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; flex-shrink: 0; touch-action: manipulation; }
+.wall-notes-btn:active { background: var(--sunk); }
+.wall-notes-btn[aria-pressed='true'] { background: var(--sunk); color: var(--text); }
 /* Kitchen timer: opened by tapping the clock. Silent, so it has to be obvious from across the room. */
 .wall-timer-chip { display: inline-block; margin-top: 0.25rem; padding: 0.15rem 0.9rem; border: 0; border-radius: 999px; background: var(--accent); color: var(--on-accent); font: inherit; font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; cursor: pointer; touch-action: manipulation; }
 .wall-timer-backdrop { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); }
@@ -542,6 +555,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 .wall-recipe-list button[aria-pressed='true'] { background: var(--sunk); border-radius: 8px; }
 .wall-recipe { overflow-y: auto; }
 .wall-recipe-empty { margin-top: 2rem; text-align: center; font-size: 1.3rem; }
+.wall-note-body { margin: 0.8rem 0 0; font-size: 1.35rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 .wall-card h2.wall-recipe-title { font-family: var(--display); font-size: 2rem; text-transform: none; letter-spacing: 0; color: var(--text); margin: 0 0 0.2rem; }
 .wall-recipe-body { display: grid; grid-template-columns: minmax(14rem, 0.8fr) 1.4fr; gap: 1.5rem; margin-top: 0.8rem; font-size: 1.2rem; line-height: 1.45; }
 .wall-recipe-body h2 { margin-top: 0; }

@@ -10,6 +10,7 @@ import { Login } from './pages/Login'
 import { MealPlan } from './pages/MealPlan'
 import { Members } from './pages/Members'
 import { NotAMember } from './pages/NotAMember'
+import { Notes } from './pages/Notes'
 import { Profile } from './pages/Profile'
 import { RecipeDetail } from './pages/RecipeDetail'
 import { Recipes } from './pages/Recipes'
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/meals/recipes" element={<Recipes />} />
         <Route path="/meals/recipes/:id" element={<RecipeDetail />} />
         <Route path="/chat" element={<Chat />} />
+        <Route path="/notes" element={<Notes />} />
         <Route path="/profile" element={<Profile />} />
         <Route
           path="/members"

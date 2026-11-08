@@ -1,6 +1,6 @@
 # FamilyPlanner
 
-A small private website for one household: a view of the family's Google calendars, shopping lists, to-dos, a weekly chore schedule, a weekly meal plan, the family's recipes, the local weather and a read-only chat assistant. See `req.md` for the full requirements. This is the v1 draft.
+A small private website for one household: a view of the family's Google calendars, shopping lists, to-dos, a weekly chore schedule, a weekly meal plan, the family's recipes, family notes, the local weather and a read-only chat assistant. See `req.md` for the full requirements. This is the v1 draft.
 
 ## Layout
 
@@ -17,6 +17,7 @@ api/                  Azure Functions v4 (Node 22, TypeScript, Zod)
 infra/main.bicep      SWA + Cosmos DB free tier + role assignment + budget alert (app settings are set by CLI)
 infra/set-google-calendar.sh     connects a Google calendar to the live site
 infra/recipe-intake.mts, .sh     daily copy of new recipes from the org file, run by Hermes
+infra/note-intake.mts, .sh       daily copy of new family notes from their org file, run by Hermes
 infra/set-recipe-intake-token.sh   sets the token that job uses
 infra/set-chat-key.sh            sets the Anthropic API key that turns chat on
 infra/family-invites.gs          Apps Script that puts emailed invites on the Family calendar
@@ -59,6 +60,29 @@ Recipes live in the app. To bring in an org file, sign in as an admin, open Sett
 
 Titles the app already has are skipped, so the import can be run again after adding to the file, and it never overwrites an edit made in the app.
 
+## Family notes
+
+`/notes` holds the things worth having to hand: the neighbours' names, appliance model numbers, where the manuals are. It opens from the dashboard and the account menu. Any member can add and edit notes, and a web address in a note becomes a link. The wall display shows them read-only.
+
+Notes come from an org file the same way recipes do. One note per top-level heading; the category is the heading's `:CATEGORY:` property, else its first tag; everything under the heading is the note, with subheadings as `Heading:` lines and other properties as `Name: value` lines:
+
+```org
+* Washing machine :Appliances:
+:PROPERTIES:
+:MODEL: Acme WM-1200
+:END:
+Filter is behind the flap, bottom right.
+[[https://example.com/wan28.pdf][Manual]]
+
+* Neighbours :Neighbours:
+** No. 12
+Sam and Alex, cat called Biscuit
+** No. 16
+Mrs Patel, has our spare key
+```
+
+To bring a file in by hand, choose it under **Import family notes** in Settings. For a daily copy, have Hermes run `infra/note-intake.sh`, which reads `~/Dropbox/org/resources/family-notes.org` (override with `NOTE_FILE`) and posts new titles to `/api/integration/notes`. It uses the recipe intake's address and token from `~/.hermes/recipe_intake.env`, so no new token is needed. As with recipes, titles already in the app are skipped, so a note edited in the app is never overwritten, and a change made later in the org file doesn't reach the app.
+
 ## Weather
 
 The dashboard shows the forecast for Reading from [Open-Meteo](https://open-meteo.com/), which needs no key. The API fetches it, so the browser only ever talks to this site (S32). The town is `HOME_TOWN` in `api/src/lib/weather.ts`.
@@ -73,7 +97,7 @@ Questions and whatever the tools read go to Anthropic's API, including anything 
 
 ## Wall display
 
-`/display` is the page for the kitchen photoframe (see `../photoframe`): a clock, the weather, today's events, meals and to-dos (due or overdue, undated, then the coming week, up to six, each with a tick button and a few seconds' Undo) with the default shopping list under them, the next six days, and this week's chores. Large **Today**, **Meals**, **Month** and **Recipes** buttons in the corner switch between the dashboard, the next seven days' meals, the whole month's calendar and a recipe browser with search and tags. A meal that matches a recipe's title opens it from Meals, and tonight's dinner opens first under Recipes. Meals stays up until another button is pressed. Month returns to the dashboard five minutes after the last touch, and Recipes after thirty, so it stays up while cooking. Tapping the clock opens a silent kitchen timer: type a time on its keypad (digits fill in from the right, so 1, 3, 0 is 1:30) or tap 1, 2, 5 or 10 minutes, and it shows a large countdown. Hidden while it runs, the countdown stays under the clock, and when the time is up the timer opens again and flashes until someone taps OK. A running timer carries on through the kiosk's and the nightly reloads. The page refreshes its data every minute and reloads itself once a night to pick up new deploys. Any member can open it to see what the frame shows.
+`/display` is the page for the kitchen photoframe (see `../photoframe`): a clock, the weather, today's events, meals and to-dos (due or overdue, undated, then the coming week, up to six, each with a tick button and a few seconds' Undo) with the default shopping list under them, the next six days, and this week's chores. Large **Today**, **Meals**, **Month** and **Recipes** buttons in the corner switch between the dashboard, the next seven days' meals, the whole month's calendar and a recipe browser with search and tags. A meal that matches a recipe's title opens it from Meals, and tonight's dinner opens first under Recipes. Meals stays up until another button is pressed. Month returns to the dashboard five minutes after the last touch, and Recipes after thirty, so it stays up while cooking. A smaller **Notes** button after them shows the family notes, read-only, and returns to the dashboard after five minutes like Month. Tapping the clock opens a silent kitchen timer: type a time on its keypad (digits fill in from the right, so 1, 3, 0 is 1:30) or tap 1, 2, 5 or 10 minutes, and it shows a large countdown. Hidden while it runs, the countdown stays under the clock, and when the time is up the timer opens again and flashes until someone taps OK. A running timer carries on through the kiosk's and the nightly reloads. The page refreshes its data every minute and reloads itself once a night to pick up new deploys. Any member can open it to see what the frame shows.
 
 The frame is paired with its own key, not a Microsoft account (S34, D9). On the Members page, under **Displays**, choose **Add a display** and copy the pairing link, which is shown only once. Open it on the frame; for the photoframe kiosk, over USB: `adb shell am start -n com.homedash.kiosk/.KioskActivity -d '<link>'`. The page swaps the key for a cookie and opens the wall page. The key reads only `/api/display/*`, the wall page's own data, and its two writes are ticking or unticking a to-do or a list item, so the frame can't add or edit anything else, chat or see members. Anything ticked on the wall is recorded as done by the display, not a person. **Revoke** on the Members page cuts it off on its next request.
 

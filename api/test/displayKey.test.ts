@@ -27,7 +27,7 @@ process.env.FAMILY_ID = 'home'
 const DISPLAY_WRITE = 'display-tasks-done'
 const DISPLAY_ITEM_WRITE = 'display-items-checked'
 /** The same list as display.test.ts: what the wall page reads. */
-const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'shopping-lists-get', 'recipes-get']
+const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'shopping-lists-get', 'recipes-get', 'notes-get']
 const quiet = { log() {}, warn() {}, error() {} }
 const sha = (s: string) => createHash('sha256').update(s).digest('hex')
 const principal = (userId: string, email: string) =>

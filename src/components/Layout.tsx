@@ -59,6 +59,9 @@ export function Layout() {
               <NavLink to="/chat" role="menuitem">
                 Chat
               </NavLink>
+              <NavLink to="/notes" role="menuitem">
+                Family notes
+              </NavLink>
               <NavLink to="/profile" role="menuitem">
                 My profile
               </NavLink>

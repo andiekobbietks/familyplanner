@@ -1,12 +1,13 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '../api/client'
-import { mutations, useCalendarEvents, useChores, usePlan, useRecipes, useSettings, useShopping, useTasks, useWallLists, useWeather } from '../api/hooks'
-import type { Me, Occurrence, PlanEntry, Slot, Task, WallList, Weather } from '../api/types'
+import { mutations, useCalendarEvents, useChores, useNotes, usePlan, useRecipes, useSettings, useShopping, useTasks, useWallLists, useWeather } from '../api/hooks'
+import type { Me, Note, Occurrence, PlanEntry, Slot, Task, WallList, Weather } from '../api/types'
 import { Icon, type IconName } from '../components/Icons'
 import { Avatar, usePersonMap } from '../components/People'
 import { addDays, fmtDayLong, fmtMonth, fmtTime, fmtWeekday, mondayOf, monthGrid, relativeDay, todayISO } from '../lib/dates'
 import { eventsByDay } from '../lib/events'
+import { noteCategories } from '../lib/notes'
 import { findRecipe, matchesSearch } from '../lib/recipes'
 import { openTodos, wallTodos } from '../lib/tasks'
 import { RecipeText } from '../components/RecipeText'
@@ -14,11 +15,11 @@ import { degrees, describeWeather } from '../lib/weather'
 
 /** How often the wall page refetches its data. */
 const REFRESH_MS = 60_000
-/** Month and Lists are a glance: after this long without a touch the frame goes back to Today on its own. Meals stays until another view is chosen. */
+/** Month, Lists and Notes are a glance: after this long without a touch the frame goes back to Today on its own. Meals stays until another view is chosen. */
 const AWAY_FOR_MS = 5 * 60_000
 /** A recipe is followed while cooking, so it stays up for this long after the last touch. */
 const RECIPE_FOR_MS = 30 * 60_000
-type View = 'today' | 'lists' | 'meals' | 'month' | 'recipes'
+type View = 'today' | 'lists' | 'meals' | 'month' | 'recipes' | 'notes'
 const VIEWS: { id: View; label: string; icon: IconName }[] = [
   { id: 'today', label: 'Today', icon: 'home' },
   { id: 'lists', label: 'Lists', icon: 'basket' },
@@ -147,11 +148,18 @@ function DisplayBoard() {
               {v.label}
             </button>
           ))}
+          {/* Family notes are looked up now and then, so their button is smaller and quieter than the views above. */}
+          <button type="button" className="wall-notes-btn" aria-pressed={view === 'notes'} aria-label="Family notes" onClick={() => setView('notes')}>
+            <Icon name="note" size={22} />
+            Notes
+          </button>
         </nav>
       </header>
 
       {view === 'lists' ? (
         <ListsView todos={openTodos(tasks, today)} today={today} onTodoDone={setTodoDone} />
+      ) : view === 'notes' ? (
+        <NotesView />
       ) : view === 'month' ? (
         <MonthView today={today} nowMs={now.getTime()} />
       ) : view === 'meals' ? (
@@ -856,6 +864,61 @@ function RecipesView({ chosenId, onChoose, tonight }: { chosenId?: string; onCho
               </div>
             </div>
           </>
+        )}
+      </section>
+    </main>
+  )
+}
+
+/**
+ * Family notes, to look something up: the neighbours, an appliance's model, where a manual is. Categories and
+ * titles on the left, the chosen note on the right. Read-only, and addresses stay as text, so the frame never
+ * leaves the wall page.
+ */
+export function NotesView({ notes: given }: { notes?: Note[] } = {}) {
+  const { data, isLoading } = useNotes()
+  const notes = given ?? data ?? []
+  const [category, setCategory] = useState<string | null>(null)
+  const [chosenId, setChosenId] = useState<string>()
+  const categories = noteCategories(notes)
+  const shown = notes.filter((n) => !category || n.category === category)
+  const note = notes.find((n) => n.id === chosenId) ?? shown[0]
+
+  return (
+    <main className="wall-recipes wall-notes">
+      <section className="wall-card wall-recipe-pick" aria-label="Family notes">
+        <h2>Family notes</h2>
+        {categories.length > 1 && (
+          <div className="wall-tags" role="group" aria-label="Filter by category">
+            {categories.map((c) => (
+              <button key={c} type="button" className="wall-tag" aria-pressed={category === c} onClick={() => setCategory(category === c ? null : c)}>
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
+        <ul className="wall-recipe-list">
+          {shown.map((n) => (
+            <li key={n.id}>
+              <button type="button" aria-pressed={note?.id === n.id} onClick={() => setChosenId(n.id)}>
+                {!category && n.category && <span className="wall-sub">{n.category}</span>}
+                {n.title}
+              </button>
+            </li>
+          ))}
+        </ul>
+        {!isLoading && notes.length === 0 && <p className="wall-muted">No notes yet. Add them in the planner, under Family notes.</p>}
+      </section>
+
+      <section className="wall-card wall-recipe" aria-label={note?.title ?? 'Note'}>
+        {note ? (
+          <>
+            <h2 className="wall-recipe-title">{note.title}</h2>
+            {note.category && <p className="wall-muted">{note.category}</p>}
+            {note.body.trim() ? <p className="wall-note-body">{note.body}</p> : <p className="wall-muted">Nothing written yet.</p>}
+          </>
+        ) : (
+          !isLoading && <p className="wall-muted wall-recipe-empty">Nothing here yet.</p>
         )}
       </section>
     </main>

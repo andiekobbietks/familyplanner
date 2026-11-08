@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { ChatMessage, Chore, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, MemberRecord, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, WallList, Weather } from './types'
+import type { ChatMessage, Chore, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, MemberRecord, Note, NoteInput, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, WallList, Weather } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -38,6 +38,9 @@ export const usePlan = (monday: string) => useQuery({ queryKey: ['plan', monday]
 
 /** The whole collection, so that search and plan cells work from one cached read. */
 export const useRecipes = () => useQuery({ queryKey: ['recipes'], queryFn: () => api<Recipe[]>('/recipes'), staleTime: 5 * 60_000 })
+
+/** Family notes, by category then title. The wall reads them too. */
+export const useNotes = () => useQuery({ queryKey: ['notes'], queryFn: () => api<Note[]>('/notes'), staleTime: 5 * 60_000 })
 
 export const useChores = (monday: string) => useQuery({ queryKey: ['chores', monday], queryFn: () => api<ChoreSchedule>(`/chores?week=${monday}`) })
 
@@ -78,6 +81,10 @@ export const mutations = {
   createRecipe: (body: RecipeInput) => api<Recipe>('/recipes', { method: 'POST', json: body }),
   patchRecipe: (id: string, body: Partial<RecipeInput>) => api<Recipe>(`/recipes/${id}`, { method: 'PATCH', json: body }),
   deleteRecipe: (id: string) => api<void>(`/recipes/${id}`, { method: 'DELETE' }),
+
+  createNote: (body: NoteInput) => api<Note>('/notes', { method: 'POST', json: body }),
+  patchNote: (id: string, body: Partial<NoteInput>) => api<Note>(`/notes/${id}`, { method: 'PATCH', json: body }),
+  deleteNote: (id: string) => api<void>(`/notes/${id}`, { method: 'DELETE' }),
 
   createChore: (name: string) => api<Chore>('/chores', { method: 'POST', json: { name } }),
   renameChore: (id: string, name: string) => api<Chore>(`/chores/${id}`, { method: 'PATCH', json: { name } }),

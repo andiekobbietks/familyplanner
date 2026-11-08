@@ -49,7 +49,7 @@ Explicitly out of scope for the first release:
 |---|---|---|
 | `admin` | Parents | Everything a member can do, plus invite and remove members, delete lists, export all data. |
 | `member` | Other family members | Create, edit and complete list items and tasks. See everything. |
-| `display` | The kitchen wall screen (photoframe) | Read only what `/display` shows: calendar, today's meals, open to-dos, the open lists' unchecked items (the default list on the Today card, every list on the Lists page), the coming week, the meal plan, recipes, weather and chores. Its two writes are marking a to-do done or not done and ticking or unticking a list item (S34). No other writes, chat, members or export. Sees only the `/display` page. |
+| `display` | The kitchen wall screen (photoframe) | Read only what `/display` shows: calendar, today's meals, open to-dos, the open lists' unchecked items (the default list on the Today card, every list on the Lists page), the coming week, the meal plan, recipes, family notes, weather and chores. Its two writes are marking a to-do done or not done and ticking or unticking a list item (S34). No other writes, chat, members or export. Sees only the `/display` page. |
 
 Notes:
 
@@ -178,6 +178,18 @@ Any member can ask questions about the planner in plain English and get a short 
 - The answer appears all at once. A request stops after 38 seconds and five rounds of looking things up, so it ends before Static Web Apps can drop it.
 - If chat isn't set up or the model can't be reached, the page says so and the rest of the planner is unaffected.
 
+### 5.11 Family notes
+
+Things the household wants to have to hand that aren't plans: the neighbours' names, an appliance's model number, where its manual is, bin days.
+
+- A note has a title (required), a category and a body. The category is free text ("Neighbours", "Appliances") and the editor suggests the ones already in use. The body is plain text up to 10,000 characters, line breaks kept.
+- The Family notes page shows notes grouped by category, uncategorised ones last under "Other", and can be searched by title, category or text. It opens from the dashboard and the account menu, not the top navigation, because it is looked up now and then.
+- An `http(s)` address in a note's body is a link on the Family notes page. Nothing else is, and everything renders as text (S14).
+- Any member can add, edit and delete notes.
+- **Wall.** The wall display shows notes read-only, from a small Notes button after its view buttons, quieter than they are because notes are an occasional lookup. Categories and titles are on the left and the chosen note on the right. Addresses stay as text there, so the frame never leaves the wall page. Like Month and Lists, it returns to Today five minutes after the last touch. Notes are visible to anyone in the kitchen, as a note on the fridge would be, so the editor says to leave out anything that shouldn't be.
+- **Import.** As for recipes (5.8), an admin chooses an org file in Settings: one note per top-level heading. The category is the heading's `:CATEGORY:` property, else its first tag (underscores read as spaces). Everything under the heading is the body: subheadings become lines ending in a colon, other properties become `Name: value` lines at the top (bookkeeping ones such as `ID` are dropped), table rows become one line each, and an org link to a web address keeps its address. A title the app already has is skipped, so the import never overwrites an edit made in the app.
+- **Daily intake.** Once a day Hermes runs `infra/note-intake.sh`, which parses `~/Dropbox/org/resources/family-notes.org` with the same parser and sends titles it has not sent before to `POST /api/integration/notes` (S31). It behaves as the recipe intake does: its own record of what it has sent, so a note deleted or renamed in the app does not come back; a message only when something was added or refused; and a failed run is retried the next day. A note changed in the org file after it was sent is not updated in the app, because the app is its home once added.
+
 ---
 
 ## 6. Architecture
@@ -280,7 +292,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 - S28. Data about children is entered by their parents and only visible to invited family. There is no public or shareable surface in v1.
 - S29. An admin can delete all data for the family in one action, leaving only that admin's own member record so they can still sign in. This satisfies the family's own right to erasure and makes decommissioning clean.
 - S30. A Google calendar feed address is a secret: anyone holding it can read that calendar. It lives only in application settings (S19), is never sent to the browser and is never logged (S23). Only `https://calendar.google.com/` addresses are fetched, so a bad setting cannot point the API elsewhere. If an address leaks, reset it in Google Calendar and update the setting.
-- S31. A service on the home server calls the API through `/api/integration/*` with a long random token in the `x-integration-token` header. That path is open at the SWA edge (the only other open API path is S34's `/api/display/*`), so the token is its only protection. It is at least 32 characters, lives in application settings and in a file readable only by its owner on the home server, and is compared in constant time. With no token configured, every request is refused. The token can add recipes and nothing else: it reads no family data, and a signed-in session does not stand in for it.
+- S31. A service on the home server calls the API through `/api/integration/*` with a long random token in the `x-integration-token` header. That path is open at the SWA edge (the only other open API path is S34's `/api/display/*`), so the token is its only protection. It is at least 32 characters, lives in application settings and in a file readable only by its owner on the home server, and is compared in constant time. With no token configured, every request is refused. The token can add recipes and family notes (5.11) and nothing else: it reads no family data, can't change or delete anything, and a signed-in session does not stand in for it.
 - S32. The forecast comes from Open-Meteo, which needs no key. The API fetches it and caches it in memory for 30 minutes, so the browser contacts no outside service (S10) and nothing about a person is sent. The town is fixed in the code as the centre of Reading, with coordinates to two decimal places, about a kilometre. No home address is involved, and those coordinates are all the forecast request contains.
 - S34. A wall display can be paired with its own key instead of a Microsoft account, so a frame on the wall needs no sign-in that can expire, be locked or ask for a second factor (D9). An admin creates a display on the Members page. The API generates 32 random bytes (base64url), stores only their SHA-256 in a `displayDevice` document and returns the key once, inside a pairing link `/display/pair#k=<key>`. The key is after the `#`, so it is never in a request line or a log, and the pairing page clears it from the address bar before presenting it once to `POST /api/display/pair`. The answer is a cookie `__Host-DisplayKey`, `Path=/`, `Secure`, `HttpOnly`, `SameSite=Strict`, `Max-Age` 400 days, renewed at most daily while the display is in use. The key is accepted only on the `/api/display/*` aliases of the routes the wall page reads, all GET, and on two writes: `POST /api/display/tasks/{id}/done` with `{ done }`, which ticks or unticks a to-do and changes nothing else about it, and `POST /api/display/items/{id}/checked` with `{ checked }`, which does the same for a list item on any open list. Those routes must be sent as `application/json` (415 otherwise), so a form on another site can't post to it even if the `SameSite=Strict` cookie were sent. A tick is recorded with `completedBy` (or `checkedBy`) and `updatedBy` set to `display:<device id>`, not a person. The key makes the caller the `display` role, so the rule that the display may only use routes marked for it applies too, and every other route still needs a signed-in member at the edge (S5). A signed-in member can use the aliases as well. With neither, the answer is 403 `NOT_PAIRED`, never 401, because SWA would turn a 401 into a sign-in redirect. Keys are compared by hash in constant time and never logged (S23). Failed attempts are logged at warning (S24). Revoking clears the hash and the display is refused on its next request. The export leaves display records out. The accepted risks: anyone standing at the frame can tick a to-do or a list item, as with a list on the fridge, and the wall offers Undo for a few seconds after each tick; and someone with physical access to the paired frame could copy its key, read what the wall page shows and tick or untick to-dos and list items until it is revoked. The key cannot add, edit or delete a to-do or list item or change anything else.
 - S33. Chat sends the question, the recent conversation and whatever its tools read to Anthropic's API, from the API and never from the browser (S10). That can include anything about children in the planner (S28), so this is the one route by which family content leaves Azure and Google. Tools only read, are limited to the planner's own content and send names, never email addresses. There are no web or messaging tools, so text in a recipe or calendar invite that tries to instruct the model has nothing to act through. Replies are shown as plain text, so they can't load anything. Questions and answers are never logged (S23). The key lives only in application settings (S19). With no key set, chat is refused and nothing is sent.
@@ -321,6 +333,8 @@ chore    { name }
 
 choreWeek { week: "YYYY-MM-DD" (the Monday), choreId, memberId }
 
+note     { title, category?, body }
+
 displayDevice { name, keyHash (SHA-256 hex, "" once revoked), active: bool, lastSeenAt? }   (S34)
 ```
 
@@ -332,7 +346,7 @@ Soft delete is not needed. Deletes are real, and the periodic backup plus manual
 
 ## 10. API surface
 
-All routes under `/api`, JSON in and out, role `member` or `admin` unless marked. The `display` role may call only `GET /me`, `/people`, `/external-events`, `/tasks`, `/plan`, `/chores`, `/weather`, `/settings`, `/shopping`, `/shopping/lists` and `/recipes`, and `POST /display/tasks/{id}/done` and `POST /display/items/{id}/checked`.
+All routes under `/api`, JSON in and out, role `member` or `admin` unless marked. The `display` role may call only `GET /me`, `/people`, `/external-events`, `/tasks`, `/plan`, `/chores`, `/weather`, `/settings`, `/shopping`, `/shopping/lists`, `/recipes` and `/notes`, and `POST /display/tasks/{id}/done` and `POST /display/items/{id}/checked`.
 
 | Method | Route | Purpose |
 |---|---|---|
@@ -360,7 +374,12 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | PATCH | `/recipes/{id}` | Update recipe |
 | DELETE | `/recipes/{id}` | Delete recipe |
 | POST | `/integration/recipes` | Add recipes whose titles are new, for Hermes. Token, not a login (S31). Returns `{ added, skipped, failed }` |
-| GET | `/display/{me,people,external-events,tasks,plan,chores,weather,settings,shopping,shopping/lists,recipes}` | The wall page's reads: a display key cookie or a signed-in member (S34) |
+| GET | `/notes` | All family notes, by category then title |
+| POST | `/notes` | Create note |
+| PATCH | `/notes/{id}` | Update note |
+| DELETE | `/notes/{id}` | Delete note |
+| POST | `/integration/notes` | Add notes whose titles are new, for Hermes. Token, not a login (S31). Returns `{ added, skipped, failed }` |
+| GET | `/display/{me,people,external-events,tasks,plan,chores,weather,settings,shopping,shopping/lists,recipes,notes}` | The wall page's reads: a display key cookie or a signed-in member (S34) |
 | POST | `/display/tasks/{id}/done` | A wall write: `{ done }`, sent as JSON. Ticks or unticks a to-do and nothing else. A display key cookie or a signed-in member (S34) |
 | POST | `/display/items/{id}/checked` | A wall write: `{ checked }`, sent as JSON. Ticks or unticks a list item and nothing else. A display key cookie or a signed-in member (S34) |
 | POST | `/display/pair` | `{ key }` once from the pairing page. 204 with the display cookie, or 403 (S34) |
@@ -431,7 +450,8 @@ Each of these should be demonstrable before v1 is called done.
 - A9g. A chore assigned this week appears on the dashboard with that person and is unassigned next week until "Copy last week" fills it, leaving any chore already assigned there untouched.
 - A9i. The dashboard shows today's weather for Reading and a forecast high on each of the next six days, and no browser request goes to a weather service. With the service unreachable, the dashboard shows no weather and otherwise works.
 - A9j. Chat answers a question from the planner's data using Claude Haiku 5.5, whatever the request asks for. No question can change anything in the planner, and with no API key the page says chat isn't set up.
-- A10. Export downloads a JSON file that contains every list, item, task, plan entry, recipe, chore, chore week and member.
+- A9k. Importing a family notes org file in Settings creates a note per top-level heading with its category, and importing it again creates none. `POST /api/integration/notes` behaves as A9h does for recipes. The wall shows the notes read-only from its Notes button, with no links.
+- A10. Export downloads a JSON file that contains every list, item, task, plan entry, recipe, chore, chore week, note and member.
 
 **Security and operations**
 - A11. Response headers on the home page include CSP, nosniff, frame options and referrer policy as specified.

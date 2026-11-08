@@ -1,6 +1,6 @@
 import { PALETTE } from './caller'
 import { addDays, mondayOf } from './dates'
-import type { BaseDoc, Chore, ChoreWeek, Item, List, Member, PlanEntry, Recipe, Settings, Task } from './types'
+import type { BaseDoc, Chore, ChoreWeek, Item, List, Member, Note, PlanEntry, Recipe, Settings, Task } from './types'
 
 /**
  * Sample household for local development. Only used when the memory store
@@ -86,7 +86,12 @@ export function seed(familyId: string): BaseDoc[] {
     { ...base(`chorewk:${monday}:c-bathroom`, 'choreWeek'), week: monday, choreId: 'c-bathroom', memberId: 'm-jo' },
   ]
 
+  const notes: Note[] = [
+    { ...base('n-neighbours', 'note'), title: 'Next door', category: 'Neighbours', body: 'No. 12: Sam and Alex, cat called Biscuit\nNo. 16: Mrs Patel, has a spare key' },
+    { ...base('n-boiler', 'note'), title: 'Boiler', category: 'Appliances', body: 'Acme Combi 30, fitted 2021\nService due every October\nManual: https://example.com/boiler-manual' },
+  ]
+
   const settings: Settings = { ...base('settings', 'settings'), id: 'settings', breakfastEnabled: false, defaultListId: 'l-groceries' }
 
-  return [...members, ...lists, ...items, ...tasks, ...plan, ...recipes, ...chores, ...choreWeeks, settings]
+  return [...members, ...lists, ...items, ...tasks, ...plan, ...recipes, ...chores, ...choreWeeks, ...notes, settings]
 }

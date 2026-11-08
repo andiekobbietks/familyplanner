@@ -6,6 +6,7 @@ import * as displayDevices from './handlers/displayDevices'
 import * as events from './handlers/events'
 import * as lists from './handlers/lists'
 import * as me from './handlers/me'
+import * as notes from './handlers/notes'
 import * as plan from './handlers/plan'
 import * as recipes from './handlers/recipes'
 import * as tasks from './handlers/tasks'
@@ -61,6 +62,7 @@ route('recipes-patch', 'PATCH', 'recipes/{id}', ANY, recipes.patchRecipe)
 route('recipes-delete', 'DELETE', 'recipes/{id}', ANY, recipes.deleteRecipe)
 
 route('integration-recipes', 'POST', 'integration/recipes', { integration: true }, recipes.intakeRecipes)
+route('integration-notes', 'POST', 'integration/notes', { integration: true }, notes.intakeNotes)
 
 view('chores-get', 'chores', chores.getChores)
 route('chores-create', 'POST', 'chores', ANY, chores.createChore)
@@ -69,6 +71,11 @@ route('chores-patch', 'PATCH', 'chores/{id}', ANY, chores.patchChore)
 route('chores-delete', 'DELETE', 'chores/{id}', ANY, chores.deleteChore)
 route('chores-assign', 'PUT', 'chores/{id}/weeks/{week}', ANY, chores.assignChore)
 route('chores-unassign', 'DELETE', 'chores/{id}/weeks/{week}', ANY, chores.unassignChore)
+
+view('notes-get', 'notes', notes.getNotes)
+route('notes-create', 'POST', 'notes', ANY, notes.createNote)
+route('notes-patch', 'PATCH', 'notes/{id}', ANY, notes.patchNote)
+route('notes-delete', 'DELETE', 'notes/{id}', ANY, notes.deleteNote)
 
 view('weather-get', 'weather', weather.getWeather)
 
