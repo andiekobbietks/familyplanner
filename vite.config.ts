@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { createReadStream, readdirSync, readFileSync } from 'node:fs'
 
 /**
  * Local stand-in for the Static Web Apps auth layer.
@@ -86,8 +87,36 @@ function devAuth(): Plugin {
   }
 }
 
+/**
+ * pdf.js's helper files, served at /assets/pdfjs/ (src/lib/pdf.ts): character maps and the standard fonts, for
+ * PDFs that don't embed theirs, and the plain JavaScript image decoders it uses because the CSP has no
+ * 'wasm-unsafe-eval'. Under /assets/ so the SWA route rules and navigation fallback already treat them as static.
+ */
+const PDFJS = 'node_modules/pdfjs-dist'
+function pdfjsFiles(): string[] {
+  const keep = (dir: string, f: string) => (dir === 'wasm' ? f.endsWith('_nowasm_fallback.js') : !f.startsWith('LICENSE'))
+  return ['cmaps', 'standard_fonts', 'wasm'].flatMap((dir) => readdirSync(`${PDFJS}/${dir}`).filter((f) => keep(dir, f)).map((f) => `${dir}/${f}`))
+}
+function pdfjsAssets(): Plugin {
+  return {
+    name: 'familyplanner-pdfjs-assets',
+    configureServer(server) {
+      const files = new Set(pdfjsFiles())
+      server.middlewares.use('/assets/pdfjs', (req, res, next) => {
+        const rel = decodeURIComponent((req.url ?? '').split('?')[0]).replace(/^\//, '')
+        if (!files.has(rel)) return next()
+        res.setHeader('Content-Type', rel.endsWith('.js') ? 'text/javascript' : 'application/octet-stream')
+        createReadStream(`${PDFJS}/${rel}`).pipe(res)
+      })
+    },
+    generateBundle() {
+      for (const f of pdfjsFiles()) this.emitFile({ type: 'asset', fileName: `assets/pdfjs/${f}`, source: readFileSync(`${PDFJS}/${f}`) })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), devAuth()],
+  plugins: [react(), devAuth(), pdfjsAssets()],
   // The photoframe's browser may be as old as Chrome 106 (the last for Android 6). Vite's default target is newer.
   build: { target: ['es2020', 'chrome87', 'firefox78', 'safari14'] },
   server: {

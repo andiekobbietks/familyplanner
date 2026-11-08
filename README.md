@@ -85,7 +85,7 @@ To bring a file in by hand, choose it under **Import family notes** in Settings.
 
 ## Documents
 
-`/documents` keeps photographed paperwork: letters, warranties, certificates. On a phone, **Add** opens the camera or photo library; each photo is shrunk in the browser to a few hundred KB and turned upright before it's sent, and pages go up one at a time. Give each document a title and description with the words you'd search for, because the photos aren't read. Those words are what the Documents search and the chat assistant (`find_documents`) look through; chat never sees the photos. The wall display can't reach documents.
+`/documents` keeps photographed paperwork: letters, warranties, certificates. On a phone, **Add** opens the camera, the photo library or the phone's files, so a PDF can be added too: each of its pages becomes a page image in the browser, and the PDF itself isn't kept. Each photo or PDF page is shrunk in the browser to a few hundred KB and turned upright before it's sent, and pages go up one at a time. PDFs are drawn by pdf.js, which loads only when one is chosen; its fonts, character maps and non-WebAssembly decoders are copied to `/assets/pdfjs/` at build time (`vite.config.ts`), so the CSP is unchanged. Give each document a title and description with the words you'd search for, because the photos aren't read. Those words are what the Documents search and the chat assistant (`find_documents`) look through; chat never sees the photos. The wall display can't reach documents.
 
 Pages are stored in Cosmos DB, one record each, so listing documents never loads a photo. `infra/main.bicep` leaves the image fields out of the Cosmos index; redeploy it (or set the same excluded paths on the container) so uploads don't pay to index them.
 

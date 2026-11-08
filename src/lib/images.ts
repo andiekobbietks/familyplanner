@@ -3,6 +3,8 @@ import type { DocPageImage, FamilyDocument } from '../api/types'
 /** The API's caps (api/src/lib/schemas.ts), in base64 characters. */
 export const PAGE_MAX_CHARS = 1_500_000
 export const THUMB_MAX_CHARS = 60_000
+/** Pages per document, as MAX_PAGES in the API's schemas. */
+export const MAX_PAGES = 50
 
 /** Width and height scaled to fit within `max` on the longer side, never enlarged. */
 export function fitWithin(width: number, height: number, max: number): { width: number; height: number } {
@@ -44,9 +46,14 @@ async function load(file: Blob): Promise<HTMLImageElement> {
   }
 }
 
-function encode(img: HTMLImageElement, steps: { edge: number; quality: number }[], max: number): string {
+/** A photo, or a PDF page already drawn on a canvas. */
+type Source = HTMLImageElement | HTMLCanvasElement
+const sizeOf = (src: Source) => (src instanceof HTMLImageElement ? { w: src.naturalWidth, h: src.naturalHeight } : { w: src.width, h: src.height })
+
+function encode(img: Source, steps: { edge: number; quality: number }[], max: number): string {
+  const { w, h } = sizeOf(img)
   for (const { edge, quality } of steps) {
-    const { width, height } = fitWithin(img.naturalWidth, img.naturalHeight, edge)
+    const { width, height } = fitWithin(w, h, edge)
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
@@ -66,7 +73,11 @@ function encode(img: HTMLImageElement, steps: { edge: number; quality: number }[
  * Done in the browser, so a 5 MB phone photo isn't sent over a weak signal.
  */
 export async function preparePhoto(file: Blob, withThumb = false): Promise<{ page: DocPageImage; thumb?: string }> {
-  const img = await load(file)
+  return prepareImage(await load(file), withThumb)
+}
+
+/** A page from any source made ready to upload, as for a photo. A PDF page arrives here already drawn (lib/pdf.ts). */
+export function prepareImage(img: Source, withThumb = false): { page: DocPageImage; thumb?: string } {
   const page: DocPageImage = { contentType: 'image/jpeg', data: encode(img, PAGE_STEPS, PAGE_MAX_CHARS) }
   return withThumb ? { page, thumb: encode(img, THUMB_STEPS, THUMB_MAX_CHARS) } : { page }
 }

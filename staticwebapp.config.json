@@ -23,6 +23,11 @@
     "rewrite": "/index.html",
     "exclude": ["/assets/*", "/icons/*", "/api/*", "/.auth/*"]
   },
+  "mimeTypes": {
+    ".mjs": "text/javascript",
+    ".bcmap": "application/octet-stream",
+    ".pfb": "application/octet-stream"
+  },
   "responseOverrides": {
     "401": { "redirect": "/.auth/login/aad?post_login_redirect_uri=.referrer", "statusCode": 302 }
   },
