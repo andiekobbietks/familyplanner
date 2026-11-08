@@ -7,7 +7,7 @@ import { badRequest, HttpError, notFound } from './errors'
 import { readCalendars } from './googleCalendars'
 import type { Ctx } from './http'
 import { dateSchema, parse, ValidationError } from './schemas'
-import type { Item, List, Member, Recipe, Task } from './types'
+import type { FamilyDocument, Item, List, Member, Recipe, Task } from './types'
 import { TIME_ZONE } from './weather'
 
 /**
@@ -132,7 +132,49 @@ const TOOLS: Tool[] = [
         .map((l) => ({ list: l.name, items: items.filter((i) => i.listId === l.id && !i.checked).map(({ name, note }) => ({ name, note })) }))
     },
   }),
+  tool({
+    name: 'find_documents',
+    description:
+      "Search the family's stored documents (photos of letters, warranties, manuals, certificates) by the title and description the family gave them. The photos themselves can't be read, only those words. Without a query, the most recent documents.",
+    input: z.object({ query: z.string().trim().max(200).optional().describe('Words to look for, such as "boiler warranty" or "passport"') }),
+    run: async ({ query }, { store, caller, names }) => {
+      const docs = await store.byType<FamilyDocument>(caller.familyId, 'document')
+      return rankDocuments(docs, query ?? '').map((d) => ({
+        title: d.title,
+        description: d.description,
+        pages: d.pageIds.length,
+        added: dateOf(new Date(d.createdAt), TIME_ZONE),
+        addedBy: nameOf(names, d.createdBy),
+      }))
+    },
+  }),
 ]
+
+/** Words shorter than this ("a", "of") would match nearly everything. */
+const MIN_WORD = 3
+const DOCUMENTS_RETURNED = 25
+
+/**
+ * Documents matching any word of the query, those matching most words first, then newest. Plurals and
+ * endings are forgiven by matching on the start of each word ("warranties" finds "warranty").
+ */
+export function rankDocuments(docs: FamilyDocument[], query: string): FamilyDocument[] {
+  const newest = [...docs].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  const words = [...new Set(query.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= MIN_WORD))]
+  if (words.length === 0) return newest.slice(0, DOCUMENTS_RETURNED)
+  // Longer words lose their last three letters (never below five), so an ending doesn't stop a match.
+  const stems = words.map((w) => (w.length > 6 ? w.slice(0, Math.max(5, w.length - 3)) : w))
+  const score = (d: FamilyDocument) => {
+    const text = `${d.title} ${d.description}`.toLowerCase()
+    return stems.filter((s) => text.includes(s)).length
+  }
+  return newest
+    .map((d) => ({ d, s: score(d) }))
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, DOCUMENTS_RETURNED)
+    .map((x) => x.d)
+}
 
 /** Sent to the model in a fixed order, so the same question costs the same. */
 export const toolDefinitions = TOOLS.map(({ name, description, input }) => ({

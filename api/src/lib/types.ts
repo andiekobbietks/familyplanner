@@ -1,6 +1,6 @@
 /** `display` is the wall screen: it may only read what the dashboard shows (section 4). */
 export type Role = 'admin' | 'member' | 'display'
-export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings' | 'recipe' | 'chore' | 'choreWeek' | 'displayDevice' | 'note'
+export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings' | 'recipe' | 'chore' | 'choreWeek' | 'displayDevice' | 'note' | 'document' | 'docPage'
 export type Slot = 'breakfast' | 'lunch' | 'dinner'
 export const SLOTS: Slot[] = ['breakfast', 'lunch', 'dinner']
 export const CATEGORIES = ['Produce', 'Dairy', 'Bakery', 'Household', 'Other'] as const
@@ -130,7 +130,32 @@ export interface Note extends BaseDoc {
   body: string
 }
 
-export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Recipe | Chore | ChoreWeek | Settings | DisplayDevice | Note
+/**
+ * A stored document: photos of a letter, a warranty, a manual. The title and description are what the
+ * family and the chat assistant search, because the photos themselves aren't read. Each page is its own
+ * `docPage` record, listed here in order, so the list of documents never carries the photos.
+ */
+export interface FamilyDocument extends BaseDoc {
+  type: 'document'
+  title: string
+  description: string
+  pageIds: string[]
+  /** A small JPEG of the first page, base64, for the list. */
+  thumb?: string
+}
+
+/** One page of a document: an image, base64, read only through its document. */
+export interface DocPage extends BaseDoc {
+  type: 'docPage'
+  documentId: string
+  contentType: ImageType
+  data: string
+}
+
+export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
+export type ImageType = (typeof IMAGE_TYPES)[number]
+
+export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Recipe | Chore | ChoreWeek | Settings | DisplayDevice | Note | FamilyDocument | DocPage
 
 export interface Caller {
   memberId: string

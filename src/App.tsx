@@ -5,6 +5,8 @@ import { Calendar } from './pages/Calendar'
 import { Chat } from './pages/Chat'
 import { Display } from './pages/Display'
 import { DisplayPair } from './pages/DisplayPair'
+import { DocumentDetail } from './pages/DocumentDetail'
+import { Documents } from './pages/Documents'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
 import { MealPlan } from './pages/MealPlan'
@@ -58,6 +60,8 @@ export default function App() {
         <Route path="/meals/recipes/:id" element={<RecipeDetail />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/notes" element={<Notes />} />
+        <Route path="/documents" element={<Documents />} />
+        <Route path="/documents/:id" element={<DocumentDetail />} />
         <Route path="/profile" element={<Profile />} />
         <Route
           path="/members"

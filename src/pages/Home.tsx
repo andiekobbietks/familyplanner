@@ -68,6 +68,10 @@ export function Home() {
           <Icon name="note" size={18} />
           Family notes
         </Link>
+        <Link to="/documents" className="chat-link">
+          <Icon name="doc" size={18} />
+          Documents
+        </Link>
       </header>
 
       <div className="dash">

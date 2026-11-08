@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { ChatMessage, Chore, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, MemberRecord, Note, NoteInput, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, WallList, Weather } from './types'
+import type { ChatMessage, Chore, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, DocPageImage, FamilyDocument, MemberRecord, Note, NoteInput, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, WallList, Weather } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -41,6 +41,11 @@ export const useRecipes = () => useQuery({ queryKey: ['recipes'], queryFn: () =>
 
 /** Family notes, by category then title. The wall reads them too. */
 export const useNotes = () => useQuery({ queryKey: ['notes'], queryFn: () => api<Note[]>('/notes'), staleTime: 5 * 60_000 })
+
+export const useDocuments = () => useQuery({ queryKey: ['documents'], queryFn: () => api<FamilyDocument[]>('/documents') })
+/** A page never changes once uploaded, so it is fetched once and kept while the app is open. */
+export const useDocPage = (documentId: string, pageId: string) =>
+  useQuery({ queryKey: ['doc-page', pageId], queryFn: () => api<DocPageImage>(`/documents/${documentId}/pages/${pageId}`), staleTime: Infinity, gcTime: 30 * 60_000 })
 
 export const useChores = (monday: string) => useQuery({ queryKey: ['chores', monday], queryFn: () => api<ChoreSchedule>(`/chores?week=${monday}`) })
 
@@ -85,6 +90,12 @@ export const mutations = {
   createNote: (body: NoteInput) => api<Note>('/notes', { method: 'POST', json: body }),
   patchNote: (id: string, body: Partial<NoteInput>) => api<Note>(`/notes/${id}`, { method: 'PATCH', json: body }),
   deleteNote: (id: string) => api<void>(`/notes/${id}`, { method: 'DELETE' }),
+
+  createDocument: (body: { title: string; description: string; thumb?: string }) => api<FamilyDocument>('/documents', { method: 'POST', json: body }),
+  patchDocument: (id: string, body: { title?: string; description?: string }) => api<FamilyDocument>(`/documents/${id}`, { method: 'PATCH', json: body }),
+  deleteDocument: (id: string) => api<void>(`/documents/${id}`, { method: 'DELETE' }),
+  addDocPage: (id: string, page: DocPageImage) => api<FamilyDocument>(`/documents/${id}/pages`, { method: 'POST', json: page }),
+  deleteDocPage: (id: string, pageId: string) => api<FamilyDocument>(`/documents/${id}/pages/${pageId}`, { method: 'DELETE' }),
 
   createChore: (name: string) => api<Chore>('/chores', { method: 'POST', json: { name } }),
   renameChore: (id: string, name: string) => api<Chore>(`/chores/${id}`, { method: 'PATCH', json: { name } }),

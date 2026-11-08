@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { isValidDate } from './dates'
-import { CATEGORIES } from './types'
+import { CATEGORIES, IMAGE_TYPES } from './types'
 
 /**
  * Every request body passes through one of these before use (S13). Zod's
@@ -65,6 +65,22 @@ export const noteSchema = z.object({
 export const notePatchSchema = noteSchema.partial()
 /** Each note is checked on its own, as recipes are, so that one bad one can't hold back the rest. */
 export const noteIntakeSchema = z.object({ notes: z.array(z.unknown()).max(100) })
+
+const base64 = (max: number) => z.string().max(max, 'Too large').regex(/^[A-Za-z0-9+/]+={0,2}$/, 'Not an image')
+
+/** A page is resized in the browser first. This cap keeps each one well inside a Cosmos DB item (2 MB). */
+export const PAGE_MAX_CHARS = 1_500_000
+export const THUMB_MAX_CHARS = 60_000
+/** Pages per document: a long contract, not a whole archive in one record. */
+export const MAX_PAGES = 50
+
+export const documentSchema = z.object({
+  title,
+  description: recipeText.optional(),
+  thumb: base64(THUMB_MAX_CHARS).optional(),
+})
+export const documentPatchSchema = z.object({ title: title.optional(), description: recipeText.optional() })
+export const docPageSchema = z.object({ contentType: z.enum(IMAGE_TYPES), data: base64(PAGE_MAX_CHARS) })
 
 export const choreSchema = z.object({ name: title })
 export const choreAssignSchema = z.object({ memberId: id })

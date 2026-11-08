@@ -132,6 +132,22 @@ export interface Note extends NoteInput {
   updatedAt: string
 }
 
+/** A stored document: photos with a title and description to find them by. Pages are fetched one at a time. */
+export interface FamilyDocument {
+  id: string
+  title: string
+  description: string
+  pageIds: string[]
+  thumb?: string
+  createdAt: string
+  createdBy: string
+}
+export type ImageType = 'image/jpeg' | 'image/png' | 'image/webp'
+export interface DocPageImage {
+  contentType: ImageType
+  data: string
+}
+
 export interface Chore {
   id: string
   name: string

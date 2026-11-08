@@ -60,7 +60,7 @@ resource container 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/container
     resource: {
       id: 'docs'
       partitionKey: { paths: [ '/familyId' ], kind: 'Hash' }
-      indexingPolicy: { indexingMode: 'consistent', includedPaths: [ { path: '/*' } ], excludedPaths: [ { path: '/notes/?' } ] }
+      indexingPolicy: { indexingMode: 'consistent', includedPaths: [ { path: '/*' } ], excludedPaths: [ { path: '/notes/?' }, { path: '/data/?' }, { path: '/thumb/?' } ] }
     }
   }
 }

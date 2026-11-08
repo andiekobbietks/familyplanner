@@ -1,7 +1,7 @@
 import { badRequest, notFound } from '../lib/errors'
 import type { Handler } from '../lib/http'
 import { eraseSchema, inviteSchema, memberRenameSchema, parse, settingsPatchSchema } from '../lib/schemas'
-import type { List, Member, Settings } from '../lib/types'
+import type { FamilyDocument, List, Member, Settings } from '../lib/types'
 import { memberColour, PALETTE } from '../lib/caller'
 import { stamp, touch } from '../lib/util'
 
@@ -73,6 +73,8 @@ export const exportAll: Handler = async ({ store, caller, now }) => {
   const types = ['member', 'event', 'list', 'item', 'task', 'meal', 'plan', 'recipe', 'chore', 'choreWeek', 'note', 'settings'] as const
   const out: Record<string, unknown> = { exportedAt: now.toISOString(), familyId: caller.familyId }
   for (const t of types) out[t] = await store.byType(caller.familyId, t)
+  // Documents' titles and descriptions only. Their photos would make the export too large to download in one go.
+  out.document = (await store.byType<FamilyDocument>(caller.familyId, 'document')).map(({ thumb: _thumb, ...d }) => d)
   return { body: out }
 }
 

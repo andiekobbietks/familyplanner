@@ -3,6 +3,7 @@ import * as admin from './handlers/admin'
 import * as chat from './handlers/chat'
 import * as chores from './handlers/chores'
 import * as displayDevices from './handlers/displayDevices'
+import * as documents from './handlers/documents'
 import * as events from './handlers/events'
 import * as lists from './handlers/lists'
 import * as me from './handlers/me'
@@ -76,6 +77,15 @@ view('notes-get', 'notes', notes.getNotes)
 route('notes-create', 'POST', 'notes', ANY, notes.createNote)
 route('notes-patch', 'PATCH', 'notes/{id}', ANY, notes.patchNote)
 route('notes-delete', 'DELETE', 'notes/{id}', ANY, notes.deleteNote)
+
+// The document store is for members only: no display alias, so the wall can't reach it.
+route('documents-get', 'GET', 'documents', ANY, documents.getDocuments)
+route('documents-create', 'POST', 'documents', ANY, documents.createDocument)
+route('documents-patch', 'PATCH', 'documents/{id}', ANY, documents.patchDocument)
+route('documents-delete', 'DELETE', 'documents/{id}', ANY, documents.deleteDocument)
+route('document-pages-add', 'POST', 'documents/{id}/pages', ANY, documents.addPage)
+route('document-pages-get', 'GET', 'documents/{id}/pages/{pageId}', ANY, documents.getPage)
+route('document-pages-delete', 'DELETE', 'documents/{id}/pages/{pageId}', ANY, documents.deletePage)
 
 view('weather-get', 'weather', weather.getWeather)
 

@@ -190,6 +190,18 @@ Things the household wants to have to hand that aren't plans: the neighbours' na
 - **Import.** As for recipes (5.8), an admin chooses an org file in Settings: one note per top-level heading. The category is the heading's `:CATEGORY:` property, else its first tag (underscores read as spaces). Everything under the heading is the body: subheadings become lines ending in a colon, other properties become `Name: value` lines at the top (bookkeeping ones such as `ID` are dropped), table rows become one line each, and an org link to a web address keeps its address. A title the app already has is skipped, so the import never overwrites an edit made in the app.
 - **Daily intake.** Once a day Hermes runs `infra/note-intake.sh`, which parses `~/Dropbox/org/resources/family-notes.org` with the same parser and sends titles it has not sent before to `POST /api/integration/notes` (S31). It behaves as the recipe intake does: its own record of what it has sent, so a note deleted or renamed in the app does not come back; a message only when something was added or refused; and a failed run is retried the next day. A note changed in the org file after it was sent is not updated in the app, because the app is its home once added.
 
+### 5.12 Documents
+
+A place to keep photographed paperwork (letters, warranties, certificates, manuals) and find it again. The photos are stored, not read: there is no OCR.
+
+- A document has a title (required), a description, and up to 50 pages. Each page is a photo. The title and description are what the family and the chat assistant search, so the upload form asks for the words someone would look for: who it's from, dates, reference or model numbers.
+- **Adding.** From a phone, Add opens the camera or photo library. Photos are shrunk in the browser to at most 2,200 px on the long side as JPEG, a few hundred KB each, turned upright from the photo's own rotation, and shown as thumbnails before saving. Pages upload one per request, so a weak signal loses at most the page in flight; the pages before it are kept and the rest can be added from the document.
+- The Documents page lists documents newest first with a thumbnail of the first page, and can be searched by title and description. Opening one shows its pages, each loaded on its own; tapping a page shows it full size to zoom into. Pages can be added or deleted, and the title and description edited, by any member. Deleting a document deletes its pages.
+- It opens from the dashboard and the account menu. The wall display can't reach documents at all.
+- **Chat** can search documents by their title and description (`find_documents`) and sees only those words, never a page or a thumbnail (S33).
+- **Storage.** Each page is its own record in Cosmos DB, base64, at most 1.5 MB, read only through its document, so listing documents never loads a photo. The image fields are left out of the Cosmos index. The server checks each upload's first bytes match its declared type (JPEG, PNG or WebP). Pages are shown as `data:` images, which the CSP already allows. Blob Storage is the move if documents grow beyond a family's paperwork or OCR is added.
+- **Backup.** The export includes each document's title, description and page list but not its images, which would make one file too large to download. Images are covered only by Cosmos DB's periodic backup (S25), so a parent should keep the originals of anything important until a scheduled backup of the images exists.
+
 ---
 
 ## 6. Architecture
@@ -288,14 +300,14 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 
 ### 7.7 Privacy
 
-- S27. The system stores only what the features need: display name, email (from the provider), role, and the family's own content. No date of birth, no addresses, no photos.
+- S27. The system stores only what the features need: display name, email (from the provider), role, and the family's own content. No date of birth, no addresses, and no photos other than the documents the family chooses to store (5.12).
 - S28. Data about children is entered by their parents and only visible to invited family. There is no public or shareable surface in v1.
 - S29. An admin can delete all data for the family in one action, leaving only that admin's own member record so they can still sign in. This satisfies the family's own right to erasure and makes decommissioning clean.
 - S30. A Google calendar feed address is a secret: anyone holding it can read that calendar. It lives only in application settings (S19), is never sent to the browser and is never logged (S23). Only `https://calendar.google.com/` addresses are fetched, so a bad setting cannot point the API elsewhere. If an address leaks, reset it in Google Calendar and update the setting.
 - S31. A service on the home server calls the API through `/api/integration/*` with a long random token in the `x-integration-token` header. That path is open at the SWA edge (the only other open API path is S34's `/api/display/*`), so the token is its only protection. It is at least 32 characters, lives in application settings and in a file readable only by its owner on the home server, and is compared in constant time. With no token configured, every request is refused. The token can add recipes and family notes (5.11) and nothing else: it reads no family data, can't change or delete anything, and a signed-in session does not stand in for it.
 - S32. The forecast comes from Open-Meteo, which needs no key. The API fetches it and caches it in memory for 30 minutes, so the browser contacts no outside service (S10) and nothing about a person is sent. The town is fixed in the code as the centre of Reading, with coordinates to two decimal places, about a kilometre. No home address is involved, and those coordinates are all the forecast request contains.
 - S34. A wall display can be paired with its own key instead of a Microsoft account, so a frame on the wall needs no sign-in that can expire, be locked or ask for a second factor (D9). An admin creates a display on the Members page. The API generates 32 random bytes (base64url), stores only their SHA-256 in a `displayDevice` document and returns the key once, inside a pairing link `/display/pair#k=<key>`. The key is after the `#`, so it is never in a request line or a log, and the pairing page clears it from the address bar before presenting it once to `POST /api/display/pair`. The answer is a cookie `__Host-DisplayKey`, `Path=/`, `Secure`, `HttpOnly`, `SameSite=Strict`, `Max-Age` 400 days, renewed at most daily while the display is in use. The key is accepted only on the `/api/display/*` aliases of the routes the wall page reads, all GET, and on two writes: `POST /api/display/tasks/{id}/done` with `{ done }`, which ticks or unticks a to-do and changes nothing else about it, and `POST /api/display/items/{id}/checked` with `{ checked }`, which does the same for a list item on any open list. Those routes must be sent as `application/json` (415 otherwise), so a form on another site can't post to it even if the `SameSite=Strict` cookie were sent. A tick is recorded with `completedBy` (or `checkedBy`) and `updatedBy` set to `display:<device id>`, not a person. The key makes the caller the `display` role, so the rule that the display may only use routes marked for it applies too, and every other route still needs a signed-in member at the edge (S5). A signed-in member can use the aliases as well. With neither, the answer is 403 `NOT_PAIRED`, never 401, because SWA would turn a 401 into a sign-in redirect. Keys are compared by hash in constant time and never logged (S23). Failed attempts are logged at warning (S24). Revoking clears the hash and the display is refused on its next request. The export leaves display records out. The accepted risks: anyone standing at the frame can tick a to-do or a list item, as with a list on the fridge, and the wall offers Undo for a few seconds after each tick; and someone with physical access to the paired frame could copy its key, read what the wall page shows and tick or untick to-dos and list items until it is revoked. The key cannot add, edit or delete a to-do or list item or change anything else.
-- S33. Chat sends the question, the recent conversation and whatever its tools read to Anthropic's API, from the API and never from the browser (S10). That can include anything about children in the planner (S28), so this is the one route by which family content leaves Azure and Google. Tools only read, are limited to the planner's own content and send names, never email addresses. There are no web or messaging tools, so text in a recipe or calendar invite that tries to instruct the model has nothing to act through. Replies are shown as plain text, so they can't load anything. Questions and answers are never logged (S23). The key lives only in application settings (S19). With no key set, chat is refused and nothing is sent.
+- S33. Chat sends the question, the recent conversation and whatever its tools read to Anthropic's API, from the API and never from the browser (S10). That can include anything about children in the planner (S28), so this is the one route by which family content leaves Azure and Google. Tools only read, are limited to the planner's own content and send names, never email addresses. For documents they send the title and description the family wrote, never the photos. There are no web or messaging tools, so text in a recipe or calendar invite that tries to instruct the model has nothing to act through. Replies are shown as plain text, so they can't load anything. Questions and answers are never logged (S23). The key lives only in application settings (S19). With no key set, chat is refused and nothing is sent.
 
 ---
 
@@ -334,6 +346,10 @@ chore    { name }
 choreWeek { week: "YYYY-MM-DD" (the Monday), choreId, memberId }
 
 note     { title, category?, body }
+
+document { title, description, pageIds: [string], thumb? (small JPEG, base64) }
+
+docPage  { documentId, contentType: "image/jpeg"|"image/png"|"image/webp", data (base64) }   (id "docpage:<document id>:<uuid>")
 
 displayDevice { name, keyHash (SHA-256 hex, "" once revoked), active: bool, lastSeenAt? }   (S34)
 ```
@@ -378,6 +394,13 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | POST | `/notes` | Create note |
 | PATCH | `/notes/{id}` | Update note |
 | DELETE | `/notes/{id}` | Delete note |
+| GET | `/documents` | All documents, newest first, without their pages |
+| POST | `/documents` | Create a document (`{ title, description?, thumb? }`) with no pages |
+| PATCH | `/documents/{id}` | Change the title or description |
+| DELETE | `/documents/{id}` | Delete a document and every page |
+| POST | `/documents/{id}/pages` | Add a page at the end (`{ contentType, data }`, one per request) |
+| GET | `/documents/{id}/pages/{pageId}` | One page's image, only through the document that lists it |
+| DELETE | `/documents/{id}/pages/{pageId}` | Delete a page |
 | POST | `/integration/notes` | Add notes whose titles are new, for Hermes. Token, not a login (S31). Returns `{ added, skipped, failed }` |
 | GET | `/display/{me,people,external-events,tasks,plan,chores,weather,settings,shopping,shopping/lists,recipes,notes}` | The wall page's reads: a display key cookie or a signed-in member (S34) |
 | POST | `/display/tasks/{id}/done` | A wall write: `{ done }`, sent as JSON. Ticks or unticks a to-do and nothing else. A display key cookie or a signed-in member (S34) |
@@ -451,7 +474,8 @@ Each of these should be demonstrable before v1 is called done.
 - A9i. The dashboard shows today's weather for Reading and a forecast high on each of the next six days, and no browser request goes to a weather service. With the service unreachable, the dashboard shows no weather and otherwise works.
 - A9j. Chat answers a question from the planner's data using Claude Haiku 5.5, whatever the request asks for. No question can change anything in the planner, and with no API key the page says chat isn't set up.
 - A9k. Importing a family notes org file in Settings creates a note per top-level heading with its category, and importing it again creates none. `POST /api/integration/notes` behaves as A9h does for recipes. The wall shows the notes read-only from its Notes button, with no links.
-- A10. Export downloads a JSON file that contains every list, item, task, plan entry, recipe, chore, chore week, note and member.
+- A9l. On a phone, photograph a two-page letter, give it a title and save it: both pages show upright, each upload is well under 1.5 MB, and the title is found by searching the Documents page and by asking chat about it. The wall display gets no answer from any document route.
+- A10. Export downloads a JSON file that contains every list, item, task, plan entry, recipe, chore, chore week, note and member, and each document's title and description (not its images).
 
 **Security and operations**
 - A11. Response headers on the home page include CSP, nosniff, frame options and referrer policy as specified.

@@ -1,6 +1,6 @@
 # FamilyPlanner
 
-A small private website for one household: a view of the family's Google calendars, shopping lists, to-dos, a weekly chore schedule, a weekly meal plan, the family's recipes, family notes, the local weather and a read-only chat assistant. See `req.md` for the full requirements. This is the v1 draft.
+A small private website for one household: a view of the family's Google calendars, shopping lists, to-dos, a weekly chore schedule, a weekly meal plan, the family's recipes, family notes, a store of photographed documents, the local weather and a read-only chat assistant. See `req.md` for the full requirements. This is the v1 draft.
 
 ## Layout
 
@@ -82,6 +82,14 @@ Mrs Patel, has our spare key
 ```
 
 To bring a file in by hand, choose it under **Import family notes** in Settings. For a daily copy, have Hermes run `infra/note-intake.sh`, which reads `~/Dropbox/org/resources/family-notes.org` (override with `NOTE_FILE`) and posts new titles to `/api/integration/notes`. It uses the recipe intake's address and token from `~/.hermes/recipe_intake.env`, so no new token is needed. As with recipes, titles already in the app are skipped, so a note edited in the app is never overwritten, and a change made later in the org file doesn't reach the app.
+
+## Documents
+
+`/documents` keeps photographed paperwork: letters, warranties, certificates. On a phone, **Add** opens the camera or photo library; each photo is shrunk in the browser to a few hundred KB and turned upright before it's sent, and pages go up one at a time. Give each document a title and description with the words you'd search for, because the photos aren't read. Those words are what the Documents search and the chat assistant (`find_documents`) look through; chat never sees the photos. The wall display can't reach documents.
+
+Pages are stored in Cosmos DB, one record each, so listing documents never loads a photo. `infra/main.bicep` leaves the image fields out of the Cosmos index; redeploy it (or set the same excluded paths on the container) so uploads don't pay to index them.
+
+The export includes documents' titles and descriptions but not their images, so keep the originals of anything important: the images are only in Cosmos DB's own periodic backup.
 
 ## Weather
 
