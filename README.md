@@ -2,6 +2,16 @@
 
 A small private website for one household: a view of the family's Google calendars, shopping lists, to-dos, a weekly chore schedule, a weekly meal plan, the family's recipes, family notes, a store of photographed documents, the local weather and a read-only chat assistant. See `req.md` for the full requirements. This is the v1 draft.
 
+![The planner's home page: today's events and meals, the lists, this week's chores and the coming week](docs/screenshots/app-home.png)
+
+It also runs on a £50 photo frame on the kitchen wall ([HomeDash](https://github.com/timotaysci/HomeDash)):
+
+![The photo frame on the wall, showing the planner's Today view](docs/images/wall-frame-today.jpg)
+
+The family in these images is made up: the wall has a demo mode for screenshots (see [Wall display](#wall-display)).
+
+Write-ups: [Building a Private Family Planner](https://timothyjohnsonsci.com/writing/2026-11-06-family-planner) and [Turning a Cheap Photo Frame into a Family Wall Display](https://timothyjohnsonsci.com/writing/2026-11-06-photo-frame-wall-display).
+
 ## Layout
 
 ```
@@ -105,7 +115,7 @@ Questions and whatever the tools read go to Anthropic's API, including anything 
 
 ## Wall display
 
-`/display` is the page for the kitchen photoframe (see `../photoframe`): a clock and the weather; then three columns: today's events and meals with the default shopping list under them, the next six days, and the to-dos (due or overdue, undated, then the coming week, up to six, or ten with no chores, each with a tick button and a few seconds' Undo) above this week's chores. Large **Today**, **Meals**, **Month** and **Recipes** buttons in the corner switch between the dashboard, the next seven days' meals, the whole month's calendar and a recipe browser with search and tags. A meal that matches a recipe's title opens it from Meals, and tonight's dinner opens first under Recipes. Meals stays up until another button is pressed. Month returns to the dashboard five minutes after the last touch, and Recipes after thirty, so it stays up while cooking. A smaller **Notes** button after them shows the family notes, read-only, and returns to the dashboard after five minutes like Month. Tapping the clock opens a silent kitchen timer: type a time on its keypad (digits fill in from the right, so 1, 3, 0 is 1:30) or tap 1, 2, 5 or 10 minutes, and it shows a large countdown. Hidden while it runs, the countdown stays under the clock, and when the time is up the timer opens again and flashes until someone taps OK. A running timer carries on through the kiosk's and the nightly reloads. The page refreshes its data every minute and reloads itself once a night to pick up new deploys. Any member can open it to see what the frame shows.
+`/display` is the page for the kitchen photoframe (see [HomeDash](https://github.com/timotaysci/HomeDash)): a clock and the weather; then three columns: today's events and meals with the default shopping list under them, the next six days, and the to-dos (due or overdue, undated, then the coming week, up to six, or ten with no chores, each with a tick button and a few seconds' Undo) above this week's chores. Large **Today**, **Meals**, **Month** and **Recipes** buttons in the corner switch between the dashboard, the next seven days' meals, the whole month's calendar and a recipe browser with search and tags. A meal that matches a recipe's title opens it from Meals, and tonight's dinner opens first under Recipes. Meals stays up until another button is pressed. Month returns to the dashboard five minutes after the last touch, and Recipes after thirty, so it stays up while cooking. A smaller **Notes** button after them shows the family notes, read-only, and returns to the dashboard after five minutes like Month. Tapping the clock opens a silent kitchen timer: type a time on its keypad (digits fill in from the right, so 1, 3, 0 is 1:30) or tap 1, 2, 5 or 10 minutes, and it shows a large countdown. Hidden while it runs, the countdown stays under the clock, and when the time is up the timer opens again and flashes until someone taps OK. A running timer carries on through the kiosk's and the nightly reloads. The page refreshes its data every minute and reloads itself once a night to pick up new deploys. Any member can open it to see what the frame shows.
 
 The frame is paired with its own key, not a Microsoft account (S34, D9). On the Members page, under **Displays**, choose **Add a display** and copy the pairing link, which is shown only once. Open it on the frame; for the photoframe kiosk, over USB: `adb shell am start -n com.homedash.kiosk/.KioskActivity -d '<link>'`. The page swaps the key for a cookie and opens the wall page. The key reads only `/api/display/*`, the wall page's own data, and its two writes are ticking or unticking a to-do or a list item, so the frame can't add or edit anything else, chat or see members. Anything ticked on the wall is recorded as done by the display, not a person. **Revoke** on the Members page cuts it off on its next request.
 
