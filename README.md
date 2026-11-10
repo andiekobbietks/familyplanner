@@ -183,3 +183,7 @@ Client secrets expire, by default after a year: `az ad sp credential reset --id 
 - No ESLint config yet; CI runs type-check and tests.
 - Playwright smoke suite (section 11) not written.
 - Events created in the app before Google became the only source are no longer shown. They stay in the database and the export.
+
+## Licence
+
+MIT. See `LICENSE`.
