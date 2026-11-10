@@ -6,7 +6,7 @@ import type { Note, Shopping, Task } from '../api/types'
 const shopping = vi.hoisted(() => ({ current: { data: undefined as Shopping | null | undefined, isSuccess: true } }))
 vi.mock('../api/hooks', () => ({ useShopping: () => shopping.current, usePeople: () => ({ data: [] }), useNotes: () => ({ data: undefined, isLoading: false }), useNotePhoto: (n: Note) => ({ data: n.photoId ? { contentType: 'image/jpeg', data: 'UEhPVE8=' } : undefined }), mutations: {} }))
 
-const { ItemList, NotesView, ShoppingPanel, TimerPanel, TodoCard, TodoList, entryMs, fmtCountdown, fmtEntry, restoreTimer } = await import('./Display')
+const { ItemList, NotesView, ShoppingPanel, TimerPanel, TodoCard, TodoList, entryMs, fmtCountdown, fmtEntry, restoreTimer, tapsComplete } = await import('./Display')
 
 describe('wall Today card: to-dos and shopping always show', () => {
   it('an empty to-do list still shows its heading', () => {
@@ -232,5 +232,18 @@ describe('wall family notes', () => {
 
   it('says how to add notes when there are none', () => {
     expect(renderToStaticMarkup(<NotesView notes={[]} />)).toContain('No notes yet')
+  })
+})
+
+describe('wall demo mode (tap Notes five times)', () => {
+  it('five quick taps complete the run', () => {
+    expect(tapsComplete([0, 300, 600, 900, 1200])).toBe(true)
+  })
+
+  it('fewer taps, or a pause in the run, do not', () => {
+    expect(tapsComplete([0, 300, 600, 900])).toBe(false)
+    expect(tapsComplete([0, 300, 600, 2000, 2300])).toBe(false)
+    // Only the last five count, so an earlier slow tap doesn't spoil a quick run.
+    expect(tapsComplete([0, 5000, 5300, 5600, 5900, 6200])).toBe(true)
   })
 })

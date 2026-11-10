@@ -18,12 +18,20 @@ export function apiUrl(path: string, pathname: string): string {
   return `${wall ? '/api/display' : '/api'}${path}`
 }
 
+/** Answers API calls in place of the server, for the wall's demo mode. While set, nothing is fetched. */
+export type ApiOverride = (path: string, init: RequestInit & { json?: unknown }) => Promise<unknown>
+let override: ApiOverride | null = null
+export function setApiOverride(fn: ApiOverride | null) {
+  override = fn
+}
+
 /**
  * One fetch wrapper for every API call. A 401 means the session has gone:
  * go to login rather than show a broken screen (section 5.1). A 403 with a
  * membership code means the account is signed in but not invited.
  */
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
+  if (override) return (await override(path, init)) as T
   const { json, ...rest } = init
   const res = await fetch(apiUrl(path, window.location.pathname), {
     ...rest,

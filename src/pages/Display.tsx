@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, ApiError } from '../api/client'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api, ApiError, setApiOverride } from '../api/client'
 import { mutations, useCalendarEvents, useChores, useNotes, usePlan, useRecipes, useSettings, useShopping, useTasks, useWallLists, useWeather } from '../api/hooks'
 import type { Me, Note, Occurrence, PlanEntry, Slot, Task, WallList, Weather } from '../api/types'
 import { Icon, type IconName } from '../components/Icons'
@@ -13,6 +13,7 @@ import { openTodos, wallTodos } from '../lib/tasks'
 import { NotePhoto } from '../components/NotePhoto'
 import { RecipeText } from '../components/RecipeText'
 import { degrees, describeWeather } from '../lib/weather'
+import { createDemoApi } from '../lib/demoWall'
 
 /** How often the wall page refetches its data. */
 const REFRESH_MS = 60_000
@@ -37,6 +38,15 @@ const TODOS_SHOWN_ALONE = 10
 /** How long Undo stays up after a to-do or list item is ticked on the wall. */
 const UNDO_FOR_MS = 8_000
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
+/** Tapping Notes this many times, each within DEMO_TAP_GAP_MS of the last, turns the demo on or off. */
+export const DEMO_TAPS = 5
+const DEMO_TAP_GAP_MS = 800
+
+/** Whether the latest tap completes the secret run: `taps` in a row, none more than `gapMs` apart. */
+export function tapsComplete(times: number[], taps = DEMO_TAPS, gapMs = DEMO_TAP_GAP_MS) {
+  const run = times.slice(-taps)
+  return run.length === taps && run.every((t, n) => n === 0 || t - run[n - 1] <= gapMs)
+}
 
 /** The current time, ticking every 20 seconds, so the clock and "today" roll over on their own. */
 function useNow() {
@@ -65,9 +75,41 @@ export function Display() {
     queryFn: () => api<Me>('/me'),
     retry: (count, e) => !notPaired(e) && count < 3,
   })
+  const [demoOnLoad] = useState(() => new URLSearchParams(window.location.search).has('demo'))
+  if (demoOnLoad) return <DemoSwitch startOn />
   if (who.isLoading) return <div className="loading">Loading…</div>
   if (notPaired(who.error)) return <NotPaired />
-  return <DisplayBoard />
+  return <DemoSwitch />
+}
+
+/**
+ * Demo mode, for photos of the wall: the same board filled with made-up family data. Tap Notes five times quickly
+ * to turn it on or off, or open /display?demo. While it is on, every API call is answered by the demo instead of the
+ * server, into a cache of its own, so no real data can show and the real cache is untouched. A reload ends it.
+ */
+function DemoSwitch({ startOn = false }: { startOn?: boolean }) {
+  const startDemo = () => {
+    const api = createDemoApi(todayISO)
+    // Set at once, before the board mounts, so its first fetches already go to the demo.
+    setApiOverride(api)
+    return { api, client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) }
+  }
+  const [demo, setDemo] = useState(() => (startOn ? startDemo() : null))
+  // Ends the demo when it is turned off or the page is left. Only a running demo has anything to undo, so turning it
+  // on doesn't clear what startDemo just set.
+  useEffect(() => {
+    if (!demo) return
+    setApiOverride(demo.api)
+    return () => setApiOverride(null)
+  }, [demo])
+  const toggle = () => setDemo(demo ? null : startDemo())
+  return demo ? (
+    <QueryClientProvider client={demo.client}>
+      <DisplayBoard key="demo" onSecret={toggle} />
+    </QueryClientProvider>
+  ) : (
+    <DisplayBoard key="real" onSecret={toggle} />
+  )
 }
 
 function NotPaired() {
@@ -82,8 +124,15 @@ function NotPaired() {
   )
 }
 
-function DisplayBoard() {
+function DisplayBoard({ onSecret }: { onSecret?: () => void }) {
   const now = useNow()
+  const notesTaps = useRef<number[]>([])
+  const tapNotes = () => {
+    notesTaps.current = [...notesTaps.current.slice(-(DEMO_TAPS - 1)), Date.now()]
+    if (!tapsComplete(notesTaps.current)) return setView('notes')
+    notesTaps.current = []
+    onSecret?.()
+  }
   const today = todayISO()
   const lastDay = addDays(today, 6)
   const qc = useQueryClient()
@@ -153,7 +202,7 @@ function DisplayBoard() {
             </button>
           ))}
           {/* Family notes are looked up now and then, so their button is smaller and quieter than the views above. */}
-          <button type="button" className="wall-notes-btn" aria-pressed={view === 'notes'} aria-label="Family notes" onClick={() => setView('notes')}>
+          <button type="button" className="wall-notes-btn" aria-pressed={view === 'notes'} aria-label="Family notes" onClick={tapNotes}>
             <Icon name="note" size={22} />
             Notes
           </button>
