@@ -111,6 +111,18 @@ The frame is paired with its own key, not a Microsoft account (S34, D9). On the 
 
 A Microsoft account invited with the role **Display** still works the same way, but its 8-hour session and Microsoft's sign-in checks make it a poor fit for a screen that runs unattended.
 
+**Demo mode.** For photos of the frame, tap **Notes** five times quickly (or open `/display?demo`) and the wall shows a made-up family instead. Every API call is answered in the browser by `src/lib/demoWall.ts`, into a query cache of its own, so no real data can show; ticking things changes only the demo's copy. The same taps, or a reload, end it.
+
+| Today | Meals |
+|---|---|
+| ![Wall display: Today](docs/screenshots/wall-today.png) | ![Wall display: Meals](docs/screenshots/wall-meals.png) |
+| **Month** | **Lists** |
+| ![Wall display: Month](docs/screenshots/wall-month.png) | ![Wall display: Lists](docs/screenshots/wall-lists.png) |
+| **Recipes** | **Notes** |
+| ![Wall display: Recipes](docs/screenshots/wall-recipes.png) | ![Wall display: Notes](docs/screenshots/wall-notes.png) |
+
+The screenshots in `docs/screenshots/` are the demo at the frame's 1280×800.
+
 The build targets Chrome 87 because the frame's browser may be old (Chrome 106 is the last for Android 6), so keep newer CSS such as `color-mix` out of the `wall-` styles.
 
 Locally, sign in as **Kitchen display**. A `api/.data/db.json` made before this role existed has no display member: delete it to reseed.
