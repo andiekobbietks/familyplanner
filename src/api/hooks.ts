@@ -41,6 +41,15 @@ export const useRecipes = () => useQuery({ queryKey: ['recipes'], queryFn: () =>
 
 /** Family notes, by category then title. The wall reads them too. */
 export const useNotes = () => useQuery({ queryKey: ['notes'], queryFn: () => api<Note[]>('/notes'), staleTime: 5 * 60_000 })
+/** A note's photo. A replaced photo has a new id, so one fetched is kept for good. The wall reads it too. */
+export const useNotePhoto = (note: Note) =>
+  useQuery({
+    queryKey: ['note-photo', note.photoId],
+    queryFn: () => api<DocPageImage>(`/notes/${note.id}/photo`),
+    enabled: !!note.photoId,
+    staleTime: Infinity,
+    gcTime: 30 * 60_000,
+  })
 
 export const useDocuments = () => useQuery({ queryKey: ['documents'], queryFn: () => api<FamilyDocument[]>('/documents') })
 /** A page never changes once uploaded, so it is fetched once and kept while the app is open. */
@@ -90,6 +99,8 @@ export const mutations = {
   createNote: (body: NoteInput) => api<Note>('/notes', { method: 'POST', json: body }),
   patchNote: (id: string, body: Partial<NoteInput>) => api<Note>(`/notes/${id}`, { method: 'PATCH', json: body }),
   deleteNote: (id: string) => api<void>(`/notes/${id}`, { method: 'DELETE' }),
+  setNotePhoto: (id: string, photo: DocPageImage) => api<Note>(`/notes/${id}/photo`, { method: 'PUT', json: photo }),
+  deleteNotePhoto: (id: string) => api<Note>(`/notes/${id}/photo`, { method: 'DELETE' }),
 
   createDocument: (body: { title: string; description: string; thumb?: string }) => api<FamilyDocument>('/documents', { method: 'POST', json: body }),
   patchDocument: (id: string, body: { title?: string; description?: string }) => api<FamilyDocument>(`/documents/${id}`, { method: 'PATCH', json: body }),

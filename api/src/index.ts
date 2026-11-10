@@ -77,6 +77,10 @@ view('notes-get', 'notes', notes.getNotes)
 route('notes-create', 'POST', 'notes', ANY, notes.createNote)
 route('notes-patch', 'PATCH', 'notes/{id}', ANY, notes.patchNote)
 route('notes-delete', 'DELETE', 'notes/{id}', ANY, notes.deleteNote)
+// A note's photo shows on the wall like the rest of the note, so unlike a document page it has a display alias.
+view('note-photo-get', 'notes/{id}/photo', notes.getNotePhoto)
+route('note-photo-put', 'PUT', 'notes/{id}/photo', ANY, notes.putNotePhoto)
+route('note-photo-delete', 'DELETE', 'notes/{id}/photo', ANY, notes.deleteNotePhoto)
 
 // The document store is for members only: no display alias, so the wall can't reach it.
 route('documents-get', 'GET', 'documents', ANY, documents.getDocuments)

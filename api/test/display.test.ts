@@ -19,7 +19,7 @@ const { getCaller } = await import('../src/lib/caller')
 process.env.FAMILY_ID = 'home'
 
 /** What the wall display may read. Anything added here should be something its page shows. */
-const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'shopping-lists-get', 'recipes-get', 'notes-get']
+const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'shopping-lists-get', 'recipes-get', 'notes-get', 'note-photo-get']
 
 const principal = (userId: string, email: string) =>
   Buffer.from(JSON.stringify({ identityProvider: 'aad', userId, userDetails: email, userRoles: ['anonymous', 'authenticated'] })).toString('base64')
@@ -31,9 +31,17 @@ function call(r: (typeof registered)[number], who = principal('dev-display', 'di
   return r.handler(req, quiet)
 }
 
+/** A note with a photo, at the id the route calls use, so the wall's photo read has something to find. */
+async function addNoteWithPhoto(store: MemoryStore) {
+  const base = { familyId: 'home', createdAt: '', createdBy: 'm-tim', updatedAt: '', updatedBy: 'm-tim' }
+  await store.upsert({ ...base, id: 'x', type: 'note', title: 'Dishwasher cycles', body: '', photoId: 'notephoto:x:1' })
+  await store.upsert({ ...base, id: 'notephoto:x:1', type: 'notePhoto', noteId: 'x', contentType: 'image/jpeg', data: '/9j/4AAQ' })
+}
+
 let store: MemoryStore
 beforeEach(async () => {
   store = await MemoryStore.create(undefined, seed)
+  await addNoteWithPhoto(store)
   setStore(store)
   // Weather and calendars must not reach the network from a test.
   vi.stubGlobal('fetch', async () => {

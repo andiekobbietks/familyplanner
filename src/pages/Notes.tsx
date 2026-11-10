@@ -3,6 +3,7 @@ import { useNotes } from '../api/hooks'
 import type { Note } from '../api/types'
 import { Icon } from '../components/Icons'
 import { NoteEditor } from '../components/NoteEditor'
+import { NotePhoto } from '../components/NotePhoto'
 import { groupNotes, linkParts, matchesNote, noteCategories } from '../lib/notes'
 
 /** A note's text as written, line breaks kept, with http(s) addresses as links and nothing else (S14). */
@@ -68,6 +69,7 @@ export function Notes() {
                   </button>
                 </div>
                 {n.body.trim() && <NoteText text={n.body} />}
+                <NotePhoto note={n} />
               </article>
             ))}
           </div>

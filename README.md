@@ -62,7 +62,7 @@ Titles the app already has are skipped, so the import can be run again after add
 
 ## Family notes
 
-`/notes` holds the things worth having to hand: the neighbours' names, appliance model numbers, where the manuals are. It opens from the dashboard and the account menu. Any member can add and edit notes, and a web address in a note becomes a link. The wall display shows them read-only.
+`/notes` holds the things worth having to hand: the neighbours' names, appliance model numbers, where the manuals are. It opens from the dashboard and the account menu. Any member can add and edit notes, and a web address in a note becomes a link. A note can have one photo, such as an appliance's programme chart, added in its editor; it shows under the note's text and opens full screen when tapped. The wall display shows notes read-only, photos included. Photos are added in the app; the org import brings text only.
 
 Notes come from an org file the same way recipes do. One note per top-level heading; the category is the heading's `:CATEGORY:` property, else its first tag; everything under the heading is the note, with subheadings as `Heading:` lines and other properties as `Name: value` lines:
 

@@ -10,6 +10,7 @@ import { eventsByDay } from '../lib/events'
 import { noteCategories } from '../lib/notes'
 import { findRecipe, matchesSearch } from '../lib/recipes'
 import { openTodos, wallTodos } from '../lib/tasks'
+import { NotePhoto } from '../components/NotePhoto'
 import { RecipeText } from '../components/RecipeText'
 import { degrees, describeWeather } from '../lib/weather'
 
@@ -939,7 +940,8 @@ export function NotesView({ notes: given }: { notes?: Note[] } = {}) {
           <>
             <h2 className="wall-recipe-title">{note.title}</h2>
             {note.category && <p className="wall-muted">{note.category}</p>}
-            {note.body.trim() ? <p className="wall-note-body">{note.body}</p> : <p className="wall-muted">Nothing written yet.</p>}
+            {note.body.trim() ? <p className="wall-note-body">{note.body}</p> : !note.photoId && <p className="wall-muted">Nothing written yet.</p>}
+            <NotePhoto key={note.id} note={note} fit className="wall-note-photo" />
           </>
         ) : (
           !isLoading && <p className="wall-muted wall-recipe-empty">Nothing here yet.</p>

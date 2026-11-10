@@ -27,7 +27,7 @@ process.env.FAMILY_ID = 'home'
 const DISPLAY_WRITE = 'display-tasks-done'
 const DISPLAY_ITEM_WRITE = 'display-items-checked'
 /** The same list as display.test.ts: what the wall page reads. */
-const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'shopping-lists-get', 'recipes-get', 'notes-get']
+const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'shopping-lists-get', 'recipes-get', 'notes-get', 'note-photo-get']
 const quiet = { log() {}, warn() {}, error() {} }
 const sha = (s: string) => createHash('sha256').update(s).digest('hex')
 const principal = (userId: string, email: string) =>
@@ -36,10 +36,18 @@ const principal = (userId: string, email: string) =>
 const tim: Caller = { memberId: 'm-tim', role: 'admin', familyId: 'home', displayName: 'Tim' }
 const charlie: Caller = { memberId: 'm-charlie', role: 'member', familyId: 'home', displayName: 'Charlie' }
 
+/** A note with a photo, at the id the route calls use, so the wall's photo read has something to find. */
+async function addNoteWithPhoto(store: MemoryStore) {
+  const base = { familyId: 'home', createdAt: '', createdBy: 'm-tim', updatedAt: '', updatedBy: 'm-tim' }
+  await store.upsert({ ...base, id: 'x', type: 'note', title: 'Dishwasher cycles', body: '', photoId: 'notephoto:x:1' })
+  await store.upsert({ ...base, id: 'notephoto:x:1', type: 'notePhoto', noteId: 'x', contentType: 'image/jpeg', data: '/9j/4AAQ' })
+}
+
 let store: MemoryStore
 let ctx: Ctx
 beforeEach(async () => {
   store = await MemoryStore.create(undefined, seed)
+  await addNoteWithPhoto(store)
   setStore(store)
   ctx = { store, caller: tim, now: new Date('2026-11-06T09:00:00Z') }
   vi.stubGlobal('fetch', async () => {
@@ -175,7 +183,7 @@ describe('display key: what it opens', () => {
 
   it.each(DISPLAY_CAN_READ)('the key reads display/%s', async (name) => {
     const { key } = await newKey()
-    const res = await request(byName(aliasFor(name)), { cookie: cookieFor(key) })
+    const res = await request(byName(aliasFor(name)), { cookie: cookieFor(key), params: { id: 'x' } })
     expect(res.status).toBe(200)
   })
 

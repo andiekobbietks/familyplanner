@@ -81,6 +81,8 @@ export const documentSchema = z.object({
 })
 export const documentPatchSchema = z.object({ title: title.optional(), description: recipeText.optional() })
 export const docPageSchema = z.object({ contentType: z.enum(IMAGE_TYPES), data: base64(PAGE_MAX_CHARS) })
+/** A note's photo is shrunk in the browser as a document page is, and capped the same. */
+export const notePhotoSchema = docPageSchema
 
 export const choreSchema = z.object({ name: title })
 export const choreAssignSchema = z.object({ memberId: id })

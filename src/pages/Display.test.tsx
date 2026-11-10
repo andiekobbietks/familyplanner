@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Note, Shopping, Task } from '../api/types'
 
 const shopping = vi.hoisted(() => ({ current: { data: undefined as Shopping | null | undefined, isSuccess: true } }))
-vi.mock('../api/hooks', () => ({ useShopping: () => shopping.current, usePeople: () => ({ data: [] }), useNotes: () => ({ data: undefined, isLoading: false }), mutations: {} }))
+vi.mock('../api/hooks', () => ({ useShopping: () => shopping.current, usePeople: () => ({ data: [] }), useNotes: () => ({ data: undefined, isLoading: false }), useNotePhoto: (n: Note) => ({ data: n.photoId ? { contentType: 'image/jpeg', data: 'UEhPVE8=' } : undefined }), mutations: {} }))
 
 const { ItemList, NotesView, ShoppingPanel, TimerPanel, TodoCard, TodoList, entryMs, fmtCountdown, fmtEntry, restoreTimer } = await import('./Display')
 
@@ -216,6 +216,18 @@ describe('wall family notes', () => {
     expect(html).toContain('https://example.com/boiler.pdf')
     expect(html).not.toContain('<a ')
     expect(html).not.toMatch(/Edit|Delete/)
+  })
+
+  it("shows a note's photo, and a note with only a photo isn't called empty", () => {
+    const withPhoto = [{ id: 'c', title: 'Dishwasher cycles', body: '', photoId: 'notephoto:c:1', updatedAt: '' }] as Note[]
+    const html = renderToStaticMarkup(<NotesView notes={withPhoto} />)
+    expect(html).toContain('src="data:image/jpeg;base64,UEhPVE8="')
+    expect(html).toContain('class="wall-note-photo"')
+    expect(html).not.toContain('Nothing written yet')
+  })
+
+  it('a note without a photo shows no picture', () => {
+    expect(renderToStaticMarkup(<NotesView notes={notes} />)).not.toContain('<img')
   })
 
   it('says how to add notes when there are none', () => {

@@ -130,6 +130,8 @@ export interface NoteInput {
 export interface Note extends NoteInput {
   id: string
   updatedAt: string
+  /** Set when the note has a photo, fetched on its own by useNotePhoto. */
+  photoId?: string
 }
 
 /** A stored document: photos with a title and description to find them by. Pages are fetched one at a time. */

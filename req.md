@@ -49,7 +49,7 @@ Explicitly out of scope for the first release:
 |---|---|---|
 | `admin` | Parents | Everything a member can do, plus invite and remove members, delete lists, export all data. |
 | `member` | Other family members | Create, edit and complete list items and tasks. See everything. |
-| `display` | The kitchen wall screen (photoframe) | Read only what `/display` shows: calendar, today's meals, open to-dos, the open lists' unchecked items (the default list on the Today view, every list on the Lists page), the coming week, the meal plan, recipes, family notes, weather and chores. Its two writes are marking a to-do done or not done and ticking or unticking a list item (S34). No other writes, chat, members or export. Sees only the `/display` page. |
+| `display` | The kitchen wall screen (photoframe) | Read only what `/display` shows: calendar, today's meals, open to-dos, the open lists' unchecked items (the default list on the Today view, every list on the Lists page), the coming week, the meal plan, recipes, family notes and their photos, weather and chores. Its two writes are marking a to-do done or not done and ticking or unticking a list item (S34). No other writes, chat, members or export. Sees only the `/display` page. |
 
 Notes:
 
@@ -186,6 +186,7 @@ Things the household wants to have to hand that aren't plans: the neighbours' na
 - A note has a title (required), a category and a body. The category is free text ("Neighbours", "Appliances") and the editor suggests the ones already in use. The body is plain text up to 10,000 characters, line breaks kept.
 - The Family notes page shows notes grouped by category, uncategorised ones last under "Other", and can be searched by title, category or text. It opens from the dashboard and the account menu, not the top navigation, because it is looked up now and then.
 - An `http(s)` address in a note's body is a link on the Family notes page. Nothing else is, and everything renders as text (S14).
+- **Photo.** A note can have one photo, such as an appliance's programme chart, added, replaced or removed in the note's editor. It is shrunk in the browser as a document page is (5.12) and stored the same way: its own record, at most 1.5 MB, read only through its note, its first bytes checked against its type, so the notes list never carries it. It shows under the note's text on the Family notes page and on the wall, and tapping it shows it full screen. This is the one picture the wall can show: unlike documents it is meant for the kitchen, so it carries the same warning as the note's text. The org import and daily intake bring text only, so a photo is added in the app. The export leaves photos out, as it does document pages.
 - Any member can add, edit and delete notes.
 - **Wall.** The wall display shows notes read-only, from a small Notes button after its view buttons, quieter than they are because notes are an occasional lookup. Categories and titles are on the left and the chosen note on the right. Addresses stay as text there, so the frame never leaves the wall page. Like Month and Lists, it returns to Today five minutes after the last touch. Notes are visible to anyone in the kitchen, as a note on the fridge would be, so the editor says to leave out anything that shouldn't be.
 - **Import.** As for recipes (5.8), an admin chooses an org file in Settings: one note per top-level heading. The category is the heading's `:CATEGORY:` property, else its first tag (underscores read as spaces). Everything under the heading is the body: subheadings become lines ending in a colon, other properties become `Name: value` lines at the top (bookkeeping ones such as `ID` are dropped), table rows become one line each, and an org link to a web address keeps its address. A title the app already has is skipped, so the import never overwrites an edit made in the app.
@@ -395,6 +396,9 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | POST | `/notes` | Create note |
 | PATCH | `/notes/{id}` | Update note |
 | DELETE | `/notes/{id}` | Delete note |
+| GET | `/notes/{id}/photo` | The note's photo, only through the note that holds it. The wall reads it too |
+| PUT | `/notes/{id}/photo` | Set or replace the note's photo (`{ contentType, data }`) |
+| DELETE | `/notes/{id}/photo` | Remove the note's photo |
 | GET | `/documents` | All documents, newest first, without their pages |
 | POST | `/documents` | Create a document (`{ title, description?, thumb? }`) with no pages |
 | PATCH | `/documents/{id}` | Change the title or description |
@@ -403,7 +407,7 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | GET | `/documents/{id}/pages/{pageId}` | One page's image, only through the document that lists it |
 | DELETE | `/documents/{id}/pages/{pageId}` | Delete a page |
 | POST | `/integration/notes` | Add notes whose titles are new, for Hermes. Token, not a login (S31). Returns `{ added, skipped, failed }` |
-| GET | `/display/{me,people,external-events,tasks,plan,chores,weather,settings,shopping,shopping/lists,recipes,notes}` | The wall page's reads: a display key cookie or a signed-in member (S34) |
+| GET | `/display/{me,people,external-events,tasks,plan,chores,weather,settings,shopping,shopping/lists,recipes,notes,notes/{id}/photo}` | The wall page's reads: a display key cookie or a signed-in member (S34) |
 | POST | `/display/tasks/{id}/done` | A wall write: `{ done }`, sent as JSON. Ticks or unticks a to-do and nothing else. A display key cookie or a signed-in member (S34) |
 | POST | `/display/items/{id}/checked` | A wall write: `{ checked }`, sent as JSON. Ticks or unticks a list item and nothing else. A display key cookie or a signed-in member (S34) |
 | POST | `/display/pair` | `{ key }` once from the pairing page. 204 with the display cookie, or 403 (S34) |
@@ -474,7 +478,7 @@ Each of these should be demonstrable before v1 is called done.
 - A9g. A chore assigned this week appears on the dashboard with that person and is unassigned next week until "Copy last week" fills it, leaving any chore already assigned there untouched.
 - A9i. The dashboard shows today's weather for Reading and a forecast high on each of the next six days, and no browser request goes to a weather service. With the service unreachable, the dashboard shows no weather and otherwise works.
 - A9j. Chat answers a question from the planner's data using Claude Haiku 5.5, whatever the request asks for. No question can change anything in the planner, and with no API key the page says chat isn't set up.
-- A9k. Importing a family notes org file in Settings creates a note per top-level heading with its category, and importing it again creates none. `POST /api/integration/notes` behaves as A9h does for recipes. The wall shows the notes read-only from its Notes button, with no links.
+- A9k. Importing a family notes org file in Settings creates a note per top-level heading with its category, and importing it again creates none. `POST /api/integration/notes` behaves as A9h does for recipes. The wall shows the notes read-only from its Notes button, with no links. A photo added to a note in the app shows under its text there and on the wall, and opens full screen when tapped.
 - A9l. On a phone, photograph a two-page letter, give it a title and save it: both pages show upright, each upload is well under 1.5 MB, and the title is found by searching the Documents page and by asking chat about it. The wall display gets no answer from any document route.
 - A9m. Add a three-page PDF and a scanned PDF to a new document on a phone: every page shows as a page, the title is suggested from the first PDF's name, and no CSP violation is reported. A 60-page PDF and a file that isn't a PDF are each refused with a message and add no pages.
 - A10. Export downloads a JSON file that contains every list, item, task, plan entry, recipe, chore, chore week, note and member, and each document's title and description (not its images).

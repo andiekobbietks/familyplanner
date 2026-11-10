@@ -1,8 +1,16 @@
-import { notFound } from '../lib/errors'
+import { badRequest, notFound } from '../lib/errors'
 import type { Handler } from '../lib/http'
-import { noteIntakeSchema, notePatchSchema, noteSchema, parse } from '../lib/schemas'
-import type { Note } from '../lib/types'
-import { stamp, touch } from '../lib/util'
+import { looksLike } from '../lib/images'
+import { noteIntakeSchema, notePatchSchema, notePhotoSchema, noteSchema, parse } from '../lib/schemas'
+import type { Store } from '../lib/store'
+import type { Note, NotePhoto } from '../lib/types'
+import { newId, stamp, touch } from '../lib/util'
+
+async function findNote(store: Store, familyId: string, id: string) {
+  const note = await store.get<Note>(familyId, id, 'note')
+  if (!note) throw notFound('Note not found')
+  return note
+}
 
 /** By category, uncategorised last, then by title. The wall reads this too, so it must stay read-only there. */
 export const getNotes: Handler = async ({ store, caller }) => {
@@ -19,8 +27,7 @@ export const createNote: Handler = async ({ store, caller }, _p, _q, body) => {
 }
 
 export const patchNote: Handler = async ({ store, caller }, params, _q, body) => {
-  const note = await store.get<Note>(caller.familyId, params.id, 'note')
-  if (!note) throw notFound('Note not found')
+  const note = await findNote(store, caller.familyId, params.id)
   const patch = parse(notePatchSchema, body)
   // An emptied category takes the note out of its group rather than leaving an empty heading.
   if (patch.category === '') patch.category = undefined
@@ -29,10 +36,40 @@ export const patchNote: Handler = async ({ store, caller }, params, _q, body) =>
 }
 
 export const deleteNote: Handler = async ({ store, caller }, params) => {
-  const note = await store.get<Note>(caller.familyId, params.id, 'note')
-  if (!note) throw notFound('Note not found')
+  const note = await findNote(store, caller.familyId, params.id)
+  if (note.photoId) await store.delete(caller.familyId, note.photoId)
   await store.delete(caller.familyId, note.id)
   return { status: 204 }
+}
+
+/**
+ * Sets the note's photo, replacing any it had. The photo gets a new id each time, so the wall, which keeps a
+ * photo it has fetched, sees the new one as soon as it rereads the notes.
+ */
+export const putNotePhoto: Handler = async ({ store, caller }, params, _q, body) => {
+  const photo = parse(notePhotoSchema, body)
+  if (!looksLike(photo.contentType, photo.data)) throw badRequest(`That isn't a ${photo.contentType.slice(6).toUpperCase()} image`)
+  const note = await findNote(store, caller.familyId, params.id)
+  const saved = await store.upsert(stamp(caller, 'notePhoto', { noteId: note.id, ...photo }, `notephoto:${note.id}:${newId()}`))
+  const updated = await store.upsert(touch(caller, note, { photoId: saved.id }))
+  if (note.photoId) await store.delete(caller.familyId, note.photoId)
+  return { body: updated }
+}
+
+export const deleteNotePhoto: Handler = async ({ store, caller }, params) => {
+  const note = await findNote(store, caller.familyId, params.id)
+  if (!note.photoId) return { body: note }
+  await store.delete(caller.familyId, note.photoId)
+  const { photoId: _gone, ...rest } = note
+  return { body: await store.upsert(touch(caller, rest as Note, {})) }
+}
+
+/** The photo only through the note that holds it, so a photo id alone opens nothing. The wall reads this. */
+export const getNotePhoto: Handler = async ({ store, caller }, params) => {
+  const note = await findNote(store, caller.familyId, params.id)
+  const photo = note.photoId ? await store.get<NotePhoto>(caller.familyId, note.photoId, 'notePhoto') : undefined
+  if (!photo || photo.noteId !== note.id) throw notFound('This note has no photo')
+  return { body: { contentType: photo.contentType, data: photo.data } }
 }
 
 /**

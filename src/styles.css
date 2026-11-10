@@ -424,6 +424,10 @@ details.done summary { cursor: pointer; padding: 0.75rem 0; color: var(--muted);
 .notes-search { margin-bottom: 1rem; }
 .note-head .icon-btn { width: 36px; height: 36px; margin-right: -0.4rem; }
 .note-body { margin: 0.3rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.note-photo { display: block; width: 100%; margin: 0.5rem 0 0; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.note-photo img { display: block; max-width: 100%; max-height: 360px; height: auto; border-radius: 8px; }
+.note-photo-edit img { display: block; max-width: 100%; max-height: 240px; margin-bottom: 0.5rem; border-radius: 8px; }
+.note-photo-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 /* Documents */
 .doc-row { display: flex; align-items: center; gap: 0.8rem; flex: 1; min-width: 0; color: var(--text); text-decoration: none; }
@@ -444,6 +448,8 @@ details.done summary { cursor: pointer; padding: 0.75rem 0; color: var(--muted);
 .doc-page-foot { display: flex; align-items: center; padding: 0.25rem 0.25rem 0; }
 .doc-full { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 50; display: flex; overflow: auto; background: #000; touch-action: pinch-zoom pan-x pan-y; }
 .doc-full img { display: block; max-width: none; width: 100%; height: auto; margin: auto; }
+.doc-full-fit { align-items: center; justify-content: center; overflow: hidden; }
+.doc-full-fit img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; }
 .doc-full-close { position: fixed; top: 0.75rem; right: 0.75rem; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.6); color: #fff; cursor: pointer; }
 .chat-log { display: flex; flex-direction: column; gap: 0.6rem; min-height: 40dvh; }
 .chat-examples { display: flex; flex-wrap: wrap; gap: 0.4rem; }
@@ -593,6 +599,8 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 .wall-recipe-list button[aria-pressed='true'] { background: var(--sunk); border-radius: 8px; }
 .wall-recipe { overflow-y: auto; }
 .wall-recipe-empty { margin-top: 2rem; text-align: center; font-size: 1.3rem; }
+.wall-note-photo { display: block; width: 100%; margin: 0.8rem 0 0; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.wall-note-photo img { display: block; max-width: 100%; max-height: 60vh; height: auto; border-radius: 12px; }
 .wall-note-body { margin: 0.8rem 0 0; font-size: 1.35rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 .wall-card h2.wall-recipe-title { font-family: var(--display); font-size: 2rem; text-transform: none; letter-spacing: 0; color: var(--text); margin: 0 0 0.2rem; }
 .wall-recipe-body { display: grid; grid-template-columns: minmax(14rem, 0.8fr) 1.4fr; gap: 1.5rem; margin-top: 0.8rem; font-size: 1.2rem; line-height: 1.45; }

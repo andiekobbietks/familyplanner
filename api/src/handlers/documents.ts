@@ -2,7 +2,8 @@ import { badRequest, notFound } from '../lib/errors'
 import type { Handler } from '../lib/http'
 import { docPageSchema, documentPatchSchema, documentSchema, MAX_PAGES, parse } from '../lib/schemas'
 import type { Store } from '../lib/store'
-import type { DocPage, FamilyDocument, ImageType } from '../lib/types'
+import { looksLike } from '../lib/images'
+import type { DocPage, FamilyDocument } from '../lib/types'
 import { newId, stamp, touch } from '../lib/util'
 
 /**
@@ -10,14 +11,6 @@ import { newId, stamp, touch } from '../lib/util'
  * Members only. The wall display can't reach any of it, and nothing here is sent to the chat model but
  * the title and description (see chatTools).
  */
-
-/** The first bytes each allowed type starts with, so an upload is the image it says it is. */
-function looksLike(contentType: ImageType, data: string): boolean {
-  const head = Buffer.from(data.slice(0, 24), 'base64')
-  if (contentType === 'image/jpeg') return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff
-  if (contentType === 'image/png') return head.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
-  return head.subarray(0, 4).toString('latin1') === 'RIFF' && head.subarray(8, 12).toString('latin1') === 'WEBP'
-}
 
 async function findDocument(store: Store, familyId: string, id: string) {
   const doc = await store.get<FamilyDocument>(familyId, id, 'document')

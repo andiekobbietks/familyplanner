@@ -1,6 +1,6 @@
 /** `display` is the wall screen: it may only read what the dashboard shows (section 4). */
 export type Role = 'admin' | 'member' | 'display'
-export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings' | 'recipe' | 'chore' | 'choreWeek' | 'displayDevice' | 'note' | 'document' | 'docPage'
+export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings' | 'recipe' | 'chore' | 'choreWeek' | 'displayDevice' | 'note' | 'notePhoto' | 'document' | 'docPage'
 export type Slot = 'breakfast' | 'lunch' | 'dinner'
 export const SLOTS: Slot[] = ['breakfast', 'lunch', 'dinner']
 export const CATEGORIES = ['Produce', 'Dairy', 'Bakery', 'Household', 'Other'] as const
@@ -128,6 +128,16 @@ export interface Note extends BaseDoc {
   title: string
   category?: string
   body: string
+  /** The note's one photo, such as an appliance's programme chart: a `notePhoto` record, so the list stays small. */
+  photoId?: string
+}
+
+/** A note's photo, base64, read only through its note. The wall shows it, so it is never a private document. */
+export interface NotePhoto extends BaseDoc {
+  type: 'notePhoto'
+  noteId: string
+  contentType: ImageType
+  data: string
 }
 
 /**
@@ -155,7 +165,7 @@ export interface DocPage extends BaseDoc {
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 export type ImageType = (typeof IMAGE_TYPES)[number]
 
-export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Recipe | Chore | ChoreWeek | Settings | DisplayDevice | Note | FamilyDocument | DocPage
+export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Recipe | Chore | ChoreWeek | Settings | DisplayDevice | Note | NotePhoto | FamilyDocument | DocPage
 
 export interface Caller {
   memberId: string
