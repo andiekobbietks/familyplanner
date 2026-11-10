@@ -194,6 +194,10 @@ Client secrets expire, by default after a year: `az ad sp credential reset --id 
 - Playwright smoke suite (section 11) not written.
 - Events created in the app before Google became the only source are no longer shown. They stay in the database and the export.
 
+## Contributing
+
+This is built for one household, so I'm not taking issues or pull requests. Security problems are welcome: see `SECURITY.md`.
+
 ## Licence
 
 MIT. See `LICENSE`.
