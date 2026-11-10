@@ -1,9 +1,10 @@
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { usePrincipal } from '../auth'
+import { safeNext } from '../lib/redirect'
 
 export function Login() {
   const [params] = useSearchParams()
-  const next = params.get('next') ?? '/'
+  const next = safeNext(params.get('next'))
   const { data, isLoading } = usePrincipal()
   if (!isLoading && data) return <Navigate to={next} replace />
 
